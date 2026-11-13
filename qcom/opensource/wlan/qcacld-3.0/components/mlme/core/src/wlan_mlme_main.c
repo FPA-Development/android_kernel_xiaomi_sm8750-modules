@@ -20,6 +20,7 @@
  * DOC: define internal APIs related to the mlme component
  */
 
+#include <linux/hwid.h>
 #include "wlan_mlme_main.h"
 #include "include/wlan_vdev_mlme.h"
 #include "cfg_ucfg_api.h"
@@ -1358,6 +1359,10 @@ static void mlme_init_generic_cfg(struct wlan_objmgr_psoc *psoc,
 		cfg_get(psoc, CFG_ENABLE_RTT_MAC_RANDOMIZATION);
 	gen->band_capability =
 		cfg_get(psoc, CFG_BAND_CAPABILITY);
+	if (get_hw_version_platform() == MLME_HWID_PROJECT_NO_6GHZ) {
+		mlme_legacy_err("replace ini BandCapability=3, support both 2.4G and 5G");
+		gen->band_capability = BIT(REG_BAND_2G) | BIT(REG_BAND_5G);
+	}
 	if (!gen->band_capability)
 		gen->band_capability = REG_BAND_MASK_ALL;
 	gen->band = gen->band_capability;
@@ -1632,6 +1637,13 @@ mlme_init_qos_edca_params(struct wlan_objmgr_psoc *psoc,
 
 	edca_params->edca_param_type =
 			cfg_get(psoc, CFG_EDCA_PIFS_PARAM_TYPE);
+
+	/* The custom EDCA parameters are only meant for Chinese units */
+	if (edca_params->enable_edca_params &&
+	    get_hw_country_version() != CountryCN) {
+		mlme_legacy_debug("set enable_edca_params 0 due to not CN build");
+		edca_params->enable_edca_params = false;
+	}
 }
 
 static void mlme_init_edca_params(struct wlan_objmgr_psoc *psoc,
@@ -3539,6 +3551,10 @@ static void mlme_init_wifi_pos_cfg(struct wlan_objmgr_psoc *psoc,
 		cfg_get(psoc, CFG_FINE_TIME_MEAS_CAPABILITY);
 	wifi_pos_cfg->oem_6g_support_disable =
 		cfg_get(psoc, CFG_OEM_SIXG_SUPPORT_DISABLE);
+	if (get_hw_version_platform() == MLME_HWID_PROJECT_NO_6GHZ) {
+		mlme_legacy_err("replace ini oem_6g_support_disable=1");
+		wifi_pos_cfg->oem_6g_support_disable = true;
+	}
 
 	mlme_init_wifi_pos_11az_config(psoc, wifi_pos_cfg);
 }

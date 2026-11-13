@@ -34,6 +34,9 @@
 #include "cfg_mlme_generic.h"
 #include "host_diag_core_event.h"
 
+/* Xiaomi hwid project without 6 GHz support */
+#define MLME_HWID_PROJECT_NO_6GHZ 3
+
 #define OWE_TRANSITION_OUI_TYPE "\x50\x6f\x9a\x1c"
 #define OWE_TRANSITION_OUI_SIZE 4
 

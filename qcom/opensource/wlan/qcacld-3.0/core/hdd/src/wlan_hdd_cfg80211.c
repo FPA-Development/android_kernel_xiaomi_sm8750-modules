@@ -29,6 +29,7 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/etherdevice.h>
+#include <linux/hwid.h>
 #include <linux/wireless.h>
 #include "osif_sync.h"
 #include <wlan_hdd_includes.h>
@@ -1364,7 +1365,8 @@ wlan_vendor_bitmap_to_reg_wifi_band_bitmap(struct wlan_objmgr_psoc *psoc,
 	if (vendor_bitmap & QCA_SETBAND_6G)
 		reg_bitmap |= BIT(REG_BAND_6G);
 
-	if (!wlan_reg_is_6ghz_supported(psoc)) {
+	if (!wlan_reg_is_6ghz_supported(psoc) ||
+	    get_hw_version_platform() == MLME_HWID_PROJECT_NO_6GHZ) {
 		hdd_debug("Driver doesn't support 6ghz");
 		reg_bitmap = (reg_bitmap & (~BIT(REG_BAND_6G)));
 	}
