@@ -658,6 +658,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	int pt_gnd_mic_swap_cnt = 0;
 	int no_gnd_mic_swap_cnt = 0;
 	bool is_pa_on = false, spl_hs = false, spl_hs_reported = false;
+	bool gnd_mic_swapped = false;
 	int ret = 0;
 	int spl_hs_count = 0;
 	int output_mv = 0;
@@ -679,12 +680,23 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 
 	/* Check for cross connection */
+check_cross_conn:
+	try = 0;
 	do {
 		cross_conn = wcd_check_cross_conn(mbhc);
 		try++;
 	} while (try < mbhc->swap_thr);
 
 	if (cross_conn > 0) {
+		/* Swap GND and MIC once through the USB-C switch and recheck */
+		if (!gnd_mic_swapped && mbhc->mbhc_cfg->swap_gnd_mic) {
+			mbhc->mbhc_cfg->swap_gnd_mic(component, true);
+			gnd_mic_swapped = true;
+			msleep(10);
+			pr_debug("%s: swap gnd and mic, and try again\n",
+				 __func__);
+			goto check_cross_conn;
+		}
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 		pr_debug("%s: cross connection found, Plug type %d\n",
 			 __func__, plug_type);
@@ -743,6 +755,14 @@ correct_plug_type:
 		}
 
 		msleep(180);
+		/*
+		 * A headset plugged in at boot can be detected before the
+		 * sound card has registered and installed the GND/MIC swap
+		 * callback, give it time to do so.
+		 */
+		if (!mbhc->mbhc_cfg->swap_gnd_mic &&
+		    mbhc->mbhc_cfg->enable_usbc_analog)
+			msleep(200);
 		/*
 		 * Use ADC single mode to minimize the chance of missing out
 		 * btn press/release for HEADSET type during correct work.
