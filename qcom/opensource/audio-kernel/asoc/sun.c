@@ -2666,6 +2666,43 @@ static int msm_asoc_machine_remove(struct platform_device *pdev)
 	return 0;
 }
 
+/*
+ * Xiaomi's audio HAL reads /sys/kernel/smartpa/smartpa_type to tell which
+ * smart PA family (aw882xx, fs19xx, sia91xx, tfa98xx) is fitted. CS35L43 is
+ * not one of them and is reported as "none", as on stock.
+ */
+static struct kobject *smartpa_kobj;
+
+static ssize_t smartpa_type_show(struct kobject *kobj,
+				 struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "none\n");
+}
+
+static struct kobj_attribute smartpa_type_attr = __ATTR_RO(smartpa_type);
+
+static int smartpa_sysfs_init(void)
+{
+	int ret;
+
+	smartpa_kobj = kobject_create_and_add("smartpa", kernel_kobj);
+	if (!smartpa_kobj)
+		return -ENOMEM;
+
+	ret = sysfs_create_file(smartpa_kobj, &smartpa_type_attr.attr);
+	if (ret) {
+		kobject_put(smartpa_kobj);
+		smartpa_kobj = NULL;
+	}
+
+	return ret;
+}
+
+static void smartpa_sysfs_deinit(void)
+{
+	kobject_put(smartpa_kobj);
+}
+
 static struct platform_driver sun_asoc_machine_driver = {
 	.driver = {
 		.name = DRV_NAME,
@@ -2680,14 +2717,26 @@ static struct platform_driver sun_asoc_machine_driver = {
 
 static int __init msm_asoc_machine_init(void)
 {
+	int ret;
+
 	snd_card_sysfs_init();
-	return platform_driver_register(&sun_asoc_machine_driver);
+
+	ret = smartpa_sysfs_init();
+	if (ret)
+		pr_err("%s: failed to create smartpa sysfs: %d\n", __func__, ret);
+
+	ret = platform_driver_register(&sun_asoc_machine_driver);
+	if (ret)
+		smartpa_sysfs_deinit();
+
+	return ret;
 }
 module_init(msm_asoc_machine_init);
 
 static void __exit msm_asoc_machine_exit(void)
 {
 	platform_driver_unregister(&sun_asoc_machine_driver);
+	smartpa_sysfs_deinit();
 }
 module_exit(msm_asoc_machine_exit);
 
