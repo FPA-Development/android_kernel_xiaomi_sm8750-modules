@@ -1578,9 +1578,28 @@ static int syna_tcm_touch_doze_analysis(int input)
 {
 	int result = 0;
 	struct syna_tcm *tcm_hcd = tcm;
-	struct syna_hw_attn_data *attn = &tcm->hw_if->bdata_attn;
+	struct syna_hw_interface *hw_if;
+	struct syna_hw_attn_data *attn;
+	struct syna_hw_pct_data *pct;
 #ifdef TOUCH_SENSORHUB_SUPPORT
-	struct spi_device *spi = (struct spi_device *)tcm->hw_if->pdev;
+	struct spi_device *spi;
+#endif
+
+	if (!tcm_hcd) {
+		LOGE("tcm is NULL, return!\n");
+		return -EINVAL;
+	}
+
+	hw_if = tcm_hcd->hw_if;
+	if (!hw_if) {
+		LOGE("hw_if is NULL, return!\n");
+		return -EINVAL;
+	}
+
+	attn = &hw_if->bdata_attn;
+	pct = &hw_if->bdata_pct;
+#ifdef TOUCH_SENSORHUB_SUPPORT
+	spi = (struct spi_device *)hw_if->pdev;
 #endif
 
 	switch(input) {
@@ -1592,7 +1611,7 @@ static int syna_tcm_touch_doze_analysis(int input)
 		break;
 #ifdef STARTUP_REFLASH
 		case RELOAD_FW:
-			syna_dev_reflash_startup(tcm, true);
+			syna_dev_reflash_startup(tcm_hcd, true);
 #endif
 		break;
 		case ENABLE_IRQ:
@@ -1605,20 +1624,76 @@ static int syna_tcm_touch_doze_analysis(int input)
 		break;
 		case REGISTER_IRQ:
 			/* release irq */
-			if (tcm_hcd->hw_if->bdata_attn.irq_id)
-				tcm->dev_release_irq(tcm_hcd);
+			if (attn->irq_id)
+				tcm_hcd->dev_release_irq(tcm_hcd);
 			/* register the interrupt handler */
-			result = tcm->dev_request_irq(tcm_hcd);
+			result = tcm_hcd->dev_request_irq(tcm_hcd);
 			if (result < 0) {
 				LOGE("Fail to request the interrupt line\n");
 			} else {
-				result = tcm_hcd->hw_if->ops_enable_irq(tcm_hcd->hw_if, true);
+				result = hw_if->ops_enable_irq(hw_if, true);
 				if (result < 0)
 					LOGE("Failed to enable interrupt\n");
 			}
 		break;
 		case IRQ_PIN_LEVEL:
 			result = gpio_get_value(attn->irq_gpio) == 0 ? 0 : 1;
+		break;
+		case ENTER_SUSPEND:
+			LOGI("Receive enter suspend command.\n");
+			schedule_resume_suspend_work(TOUCH_ID, false);
+		break;
+		case ENTER_RESUME:
+			LOGI("Receive enter resume command.\n");
+			schedule_resume_suspend_work(TOUCH_ID, true);
+		break;
+		case POWER_ON:
+			LOGI("Receive power on command.\n");
+			if (!pct->pinctrl) {
+				LOGE("Failed to init pinctrl\n");
+				break;
+			}
+			result = pinctrl_select_state(pct->pinctrl,
+					pct->pinctrl_state_active);
+			if (result < 0) {
+				LOGE("Failed to select active pinstate, ret[%d]\n",
+					result);
+				break;
+			}
+			if (hw_if->ops_power_on) {
+				result = hw_if->ops_power_on(hw_if, true);
+				if (result < 0) {
+					LOGE("power on in resume failed, ret[%d]\n",
+						result);
+					break;
+				}
+			}
+			tcm_hcd->fod_finger = false;
+			LOGI("Device powered on\n");
+		break;
+		case POWER_OFF:
+			LOGI("Receive power off command.\n");
+			if (pct->pinctrl) {
+				result = pinctrl_select_state(pct->pinctrl,
+						pct->pinctrl_state_suspend);
+				if (result < 0) {
+					LOGE("Failed to select suspend pinstate, ret[%d]\n",
+						result);
+					break;
+				}
+			} else {
+				LOGE("Failed to select pinctrl state\n");
+			}
+			if (!hw_if->ops_power_on) {
+				LOGE("No power off operation to proceed!\n");
+				break;
+			}
+			result = hw_if->ops_power_on(hw_if, false);
+			if (result) {
+				LOGE("power off failed, ret[%d]\n", result);
+				break;
+			}
+			LOGI("Device powered off\n");
 		break;
 	#ifdef TOUCH_SENSORHUB_SUPPORT
 		case SENSORHUB_NONUI_ENABLE:
