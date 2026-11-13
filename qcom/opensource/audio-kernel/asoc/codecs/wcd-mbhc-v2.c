@@ -1760,8 +1760,15 @@ static int wcd_mbhc_usbc_ana_event_handler(struct notifier_block *nb,
 			}
 		}
 #endif
-		if (mbhc->mbhc_cb->clk_setup)
+		/*
+		 * Restart detection from a known state: toggle the MBHC
+		 * clock and L_DET_EN so a new insertion is always seen.
+		 */
+		if (mbhc->mbhc_cb->clk_setup) {
+			mbhc->mbhc_cb->clk_setup(mbhc->component, false);
 			mbhc->mbhc_cb->clk_setup(mbhc->component, true);
+		}
+		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_L_DET_EN, 1);
 
 #if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
