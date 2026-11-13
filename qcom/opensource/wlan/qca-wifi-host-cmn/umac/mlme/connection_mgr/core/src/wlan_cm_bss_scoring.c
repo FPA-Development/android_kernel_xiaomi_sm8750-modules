@@ -1528,6 +1528,7 @@ bool wlan_cm_is_eht_allowed_for_current_security(struct wlan_objmgr_psoc *psoc,
 	QDF_STATUS status;
 	struct security_info *neg_sec_info;
 	uint32_t oem_eht_cfg = 0x0;
+	bool open_allowed = false;
 	bool mlie_present;
 
 	status = wlan_mlme_is_rf_test_mode_enabled(psoc, &rf_test_mode);
@@ -1543,7 +1544,14 @@ bool wlan_cm_is_eht_allowed_for_current_security(struct wlan_objmgr_psoc *psoc,
 	if (!entry->ie_list.rsn) {
 		mlme_debug(QDF_MAC_ADDR_FMT ": RSN IE not present",
 			   QDF_MAC_ADDR_REF(entry->bssid.bytes));
-		return false;
+
+		/* EHT/MLO with open networks is allowed by the OEM config */
+		wlan_mlme_get_eht_mlo_crypto_open_allow(psoc, &open_allowed);
+		if (!open_allowed ||
+		    !WLAN_CRYPTO_IS_OPEN(entry->neg_sec_info.authmodeset))
+			return false;
+
+		return entry->ie_list.multi_link_bv || !is_mlo_connect;
 	}
 
 	/* Get the OEM EHT configuration. */
