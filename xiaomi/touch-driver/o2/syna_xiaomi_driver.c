@@ -1584,26 +1584,26 @@ static int syna_tcm_touch_doze_analysis(int input)
 #endif
 
 	switch(input) {
-		case TOUCH_0:
+		case POWER_RESET:
 			tcm_hcd->doze_test = true;
 			schedule_resume_suspend_work(TOUCH_ID, false);
 			schedule_resume_suspend_work(TOUCH_ID, true);
 			tcm_hcd->doze_test = false;
 		break;
 #ifdef STARTUP_REFLASH
-		case TOUCH_1:
+		case RELOAD_FW:
 			syna_dev_reflash_startup(tcm, true);
 #endif
 		break;
-		case TOUCH_2:
+		case ENABLE_IRQ:
 			enable_irq(attn->irq_id);
 			attn->irq_enabled = true;
 		break;
-		case TOUCH_3:
+		case DISABLE_IRQ:
 			disable_irq_nosync(attn->irq_id);
 			attn->irq_enabled = false;
 		break;
-		case TOUCH_4:
+		case REGISTER_IRQ:
 			/* release irq */
 			if (tcm_hcd->hw_if->bdata_attn.irq_id)
 				tcm->dev_release_irq(tcm_hcd);
@@ -1617,24 +1617,24 @@ static int syna_tcm_touch_doze_analysis(int input)
 					LOGE("Failed to enable interrupt\n");
 			}
 		break;
-		case TOUCH_5:
+		case IRQ_PIN_LEVEL:
 			result = gpio_get_value(attn->irq_gpio) == 0 ? 0 : 1;
 		break;
 	#ifdef TOUCH_SENSORHUB_SUPPORT
-		case TOUCH_10:
+		case SENSORHUB_NONUI_ENABLE:
 			xiaomi_set_sensorhub_nonui_enable(true);
 		break;
-		case TOUCH_11:
+		case SENSORHUB_NONUI_DISABLE:
 			xiaomi_set_sensorhub_nonui_enable(false);
 		break;
-		case TOUCH_12:
+		case SPI_GET_SYNC:
 		result = pm_runtime_get_sync(spi->master->dev.parent);
 		if (result < 0) {
 			LOGE("Fail to failed to get sync, retval = %d\n", result);
 			return result;
 		}
 		break;
-		case TOUCH_13:
+		case SPI_PUT_SYNC:
 		result = pm_runtime_put_sync(spi->master->dev.parent);
 		if (result < 0) {
 			LOGE("Fail to failed to put sync, retval = %d\n", result);
