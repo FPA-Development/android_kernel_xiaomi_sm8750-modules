@@ -526,7 +526,7 @@ static ssize_t st21nfc_dev_read(struct file *filp, char __user *buf,
 	mutex_unlock(&st21nfc_dev->read_mutex);
 
 	if (ret < 0) {
-		pr_err("%s: i2c_master_recv returned %d\n", __func__, ret);
+		pr_info("%s: i2c_master_recv returned %d\n", __func__, ret);
 		return ret;
 	}
 	if (ret > count) {
@@ -588,7 +588,7 @@ static ssize_t st21nfc_dev_write(struct file *filp, const char __user *buf,
 	/* Write data */
 	ret = i2c_master_send(st21nfc_dev->client, tmp, count);
 	if (ret != count) {
-		pr_err("%s : i2c_master_send returned %d\n", __func__, ret);
+		pr_info("%s : i2c_master_send returned %d\n", __func__, ret);
 		ret = -EIO;
 	}
 	kfree(tmp);
