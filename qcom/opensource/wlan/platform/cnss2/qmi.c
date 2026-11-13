@@ -5,6 +5,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/hwid.h>
 #include <linux/module.h>
 #include <linux/soc/qcom/qmi.h>
 #include <linux/vmalloc.h>
@@ -26,7 +27,8 @@
 #define BIN_BDF_FILE_NAME_GF		"bdwlang.bin"
 #define BIN_BDF_FILE_NAME_PREFIX	"bdwlan.b"
 #define BIN_BDF_FILE_NAME_GF_PREFIX	"bdwlang.b"
-#define REGDB_FILE_NAME			"regdb.bin"
+/* Xiaomi ships its own regulatory database next to the stock one */
+#define REGDB_FILE_NAME			"regdb_xiaomi.bin"
 #define HDS_FILE_NAME			"hds.bin"
 #define CHIP_ID_GF_MASK			0x10
 
@@ -879,6 +881,60 @@ static char *cnss_bdf_type_to_str(enum cnss_bdf_type bdf_type)
 	}
 }
 
+/*
+ * Xiaomi boards share one WLAN firmware image and pick their board data by
+ * hwid project and sales region: bd_<project>[gl|in][_v1].elf, where "_v1"
+ * marks the board data for major version 1 of the WLAN chip.
+ */
+struct cnss_xiaomi_bdf {
+	u32 hw_project;
+	const char *name;
+	bool india;
+	bool v1;
+};
+
+static const struct cnss_xiaomi_bdf cnss_xiaomi_bdf_list[] = {
+	{ 1, "o2", true, true },
+	{ 2, "o3", true, true },
+	{ 3, "o11u", false, true },
+	{ 4, "o1", true, false },
+	{ 5, "o8", false, false },
+	{ 6, "o18", false, false },
+	{ 9, "p81", false, false },
+	{ 11, "p11", false, false },
+};
+
+static bool cnss_get_xiaomi_bdf_name(struct cnss_plat_data *plat_priv,
+				     char *filename, u32 filename_len)
+{
+	u32 hw_country = get_hw_country_version();
+	u32 hw_project = get_hw_version_platform();
+	bool v1 = plat_priv->device_version.major_version == FW_V1_NUMBER;
+	const struct cnss_xiaomi_bdf *bdf = NULL;
+	const char *region = "";
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(cnss_xiaomi_bdf_list); i++) {
+		if (cnss_xiaomi_bdf_list[i].hw_project == hw_project) {
+			bdf = &cnss_xiaomi_bdf_list[i];
+			break;
+		}
+	}
+
+	if (!bdf || (v1 && !bdf->v1))
+		return false;
+
+	if (hw_country == CountryGlobal)
+		region = "gl";
+	else if (hw_country == CountryIndia && bdf->india && !v1)
+		region = "in";
+
+	snprintf(filename, filename_len, "bd_%s%s%s.elf", bdf->name, region,
+		 v1 ? "_v1" : "");
+
+	return true;
+}
+
 static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 				  u32 bdf_type, char *filename,
 				  u32 filename_len)
@@ -898,7 +954,9 @@ static int cnss_get_bdf_file_name(struct cnss_plat_data *plat_priv,
 			if (plat_priv->chip_info.chip_id & CHIP_ID_GF_MASK)
 				snprintf(filename_tmp, filename_len,
 					 ELF_BDF_FILE_NAME_GF);
-			else
+			else if (!cnss_get_xiaomi_bdf_name(plat_priv,
+							   filename_tmp,
+							   filename_len))
 				snprintf(filename_tmp, filename_len,
 					 ELF_BDF_FILE_NAME);
 		} else if (plat_priv->board_info.board_id < 0xFF) {
