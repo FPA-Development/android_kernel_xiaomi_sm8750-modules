@@ -628,6 +628,8 @@ struct wcd_mbhc {
 	struct wcd_mbhc_fn *mbhc_fn;
 	bool force_linein;
 	struct device_node *wcd_usbss_aatc_dev_np;
+	/* Pinctrl node of the switch muxing the USB-C SBU lines to UART */
+	struct device_node *uart_audio_sw_np;
 	struct device_node *fsa_aatc_dev_np;
 	struct device_node *aatc_dev_np;
 	struct notifier_block aatc_dev_nb;

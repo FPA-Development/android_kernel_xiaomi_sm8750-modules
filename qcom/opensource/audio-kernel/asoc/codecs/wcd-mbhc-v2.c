@@ -1731,6 +1731,9 @@ static int wcd_mbhc_usbc_ana_event_handler(struct notifier_block *nb,
 
 	if (mode == TYPEC_ACCESSORY_AUDIO) {
 		dev_dbg(mbhc->component->dev, "enter, %s: mode = %lu\n", __func__, mode);
+		/* Take the SBU lines away from the debug UART */
+		if (mbhc->uart_audio_sw_np)
+			msm_cdc_pinctrl_select_active_state(mbhc->uart_audio_sw_np);
 #if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
 		if (mbhc->wcd_usbss_aatc_dev_np) {
 			if (cable_status == NULL)
@@ -1763,6 +1766,8 @@ static int wcd_mbhc_usbc_ana_event_handler(struct notifier_block *nb,
 		}
 #endif
 	} else if (mode < TYPEC_MAX_ACCESSORY) {
+		if (mbhc->uart_audio_sw_np)
+			msm_cdc_pinctrl_select_sleep_state(mbhc->uart_audio_sw_np);
 #if IS_ENABLED(CONFIG_QCOM_WCD_USBSS_I2C)
 		if (mbhc->wcd_usbss_aatc_dev_np) {
 			WCD_MBHC_REG_READ(WCD_MBHC_L_DET_EN, l_det_en);
@@ -1832,6 +1837,8 @@ int wcd_mbhc_start(struct wcd_mbhc *mbhc, struct wcd_mbhc_config *mbhc_cfg)
 		dev_dbg(mbhc->component->dev, "%s: usbc analog enabled\n",
 					__func__);
 		mbhc->swap_thr = GND_MIC_USBC_SWAP_THRESHOLD;
+		mbhc->uart_audio_sw_np = of_parse_phandle(card->dev->of_node,
+						"qcom,uart-audio-sw-gpio", 0);
 		if (!mbhc->wcd_usbss_aatc_dev_np && !mbhc->fsa_aatc_dev_np) {
 			dev_err(card->dev, "%s: wcd939x or fsa i2c node not found\n",
 									__func__);
