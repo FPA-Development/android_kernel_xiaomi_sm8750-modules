@@ -40,7 +40,7 @@ enum xiaomi_touch_mode_dts_index {
 	MI_DTS_GET_CUR_INDEX,
 };
 
-static int touch_mode[MAX_TOUCH_PANEL_COUNT][DATA_MODE_33][VALUE_TYPE_SIZE];
+static int touch_mode[MAX_TOUCH_PANEL_COUNT][Touch_Mode_NUM][VALUE_TYPE_SIZE];
 static xiaomi_game_mode_board_data_t game_mode_bdata[MAX_TOUCH_PANEL_COUNT];
 static struct work_struct switch_mode_work[MAX_TOUCH_PANEL_COUNT];
 static struct workqueue_struct *cmd_update_wq = NULL;
@@ -54,7 +54,7 @@ static bool sensorhub_nonui_enable = true;
 #define GESTURE_TOUCH_AND_HOLD_UP_EVENT 0x81
 #endif
 
-void driver_update_touch_mode(s8 touch_id, int _touch_mode[DATA_MODE_33], long update_mode_mask)
+void driver_update_touch_mode(s8 touch_id, int _touch_mode[Touch_Mode_NUM], long update_mode_mask)
 {
 	int i = 0;
 	xiaomi_touch_data_t *xiaomi_touch_data = get_xiaomi_touch_data(touch_id);
@@ -64,10 +64,10 @@ void driver_update_touch_mode(s8 touch_id, int _touch_mode[DATA_MODE_33], long u
 		return;
 	}
 
-	for (i = 0; i < DATA_MODE_33; i++) {
+	for (i = 0; i < Touch_Mode_NUM; i++) {
 		if (update_mode_mask & (1 << i)) {
 			touch_mode[touch_id][i][SET_CUR_VALUE] = _touch_mode[i];
-			if (i > DATA_MODE_8) {
+			if (i > Touch_Panel_Orientation) {
 				touch_mode[touch_id][i][GET_CUR_VALUE] = _touch_mode[i];
 			}
 		}
@@ -87,7 +87,7 @@ EXPORT_SYMBOL_GPL(driver_update_touch_mode);
 
 int driver_get_touch_mode(s8 touch_id, int mode)
 {
-	if (touch_id < 0 || touch_id >= MAX_TOUCH_PANEL_COUNT || mode < 0 || mode >= DATA_MODE_33)
+	if (touch_id < 0 || touch_id >= MAX_TOUCH_PANEL_COUNT || mode < 0 || mode >= Touch_Mode_NUM)
 		return -1;
 	return touch_mode[touch_id][mode][GET_CUR_VALUE];
 }
@@ -100,21 +100,21 @@ u8 xiaomi_get_gesture_type(s8 touch_id)
 
 	if (xiaomi_touch_data == NULL)
 		return -EIO;
-	if (touch_mode[touch_id][DATA_MODE_17][GET_CUR_VALUE] == 2)
+	if (touch_mode[touch_id][Touch_Nonui_Mode][GET_CUR_VALUE] == 2)
 		return tmp_value;
 
-	if (touch_mode[touch_id][DATA_MODE_11][GET_CUR_VALUE] &&
-			!touch_mode[touch_id][DATA_MODE_17][GET_CUR_VALUE])
+	if (touch_mode[touch_id][Touch_Aod_Enable][GET_CUR_VALUE] &&
+			!touch_mode[touch_id][Touch_Nonui_Mode][GET_CUR_VALUE])
 		tmp_value |= GESTURE_SINGLETAP_EVENT;
 
-	if (touch_mode[touch_id][DATA_MODE_14][GET_CUR_VALUE] &&
-			!touch_mode[touch_id][DATA_MODE_17][GET_CUR_VALUE])
+	if (touch_mode[touch_id][Touch_Doubletap_Mode][GET_CUR_VALUE] &&
+			!touch_mode[touch_id][Touch_Nonui_Mode][GET_CUR_VALUE])
 		tmp_value |= GESTURE_DOUBLETAP_EVENT;
 
-	if (touch_mode[touch_id][DATA_MODE_10][GET_CUR_VALUE]) {
+	if (touch_mode[touch_id][Touch_Fod_Enable][GET_CUR_VALUE]) {
 		tmp_value |= GESTURE_LONGPRESS_EVENT;
-		if (touch_mode[touch_id][DATA_MODE_16][GET_CUR_VALUE] &&
-				!touch_mode[touch_id][DATA_MODE_17][GET_CUR_VALUE])
+		if (touch_mode[touch_id][Touch_FodIcon_Enable][GET_CUR_VALUE] &&
+				!touch_mode[touch_id][Touch_Nonui_Mode][GET_CUR_VALUE])
 			tmp_value |= GESTURE_SINGLETAP_EVENT;
 	}
 	LOG_INFO("gesture type:%2x\n", tmp_value);
@@ -167,13 +167,13 @@ void xiaomi_notify_sensorhub_enable(s8 touch_id, bool status)
 				xiaomi_touch_driver_param->hardware_operation.ic_enable_irq(false);
 			}
 			msleep(10);
-			add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_27, 1, &ssh_value);
+			add_common_data_to_buf(0, SET_CUR_VALUE, Touch_Suspend, 1, &ssh_value);
 			xiaomi_touch_data->ssh_status = status;
 			LOG_INFO("notify sensorhub enable %d", status);
 		}
 	} else {
 		ssh_value = XIAOMI_TOUCH_SENSORHUB_DISABLE;
-		add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_27, 1, &ssh_value);
+		add_common_data_to_buf(0, SET_CUR_VALUE, Touch_Suspend, 1, &ssh_value);
 		msleep(10);
 		if (xiaomi_touch_driver_param->hardware_operation.ic_enable_irq) {
 			xiaomi_touch_driver_param->hardware_operation.ic_enable_irq(true);
@@ -235,20 +235,20 @@ static void xiaomi_touch_grid_update_work(struct work_struct *work)
 		return;
 	}
 
-	if (touch_mode[touch_id][DATA_MODE_0][GET_CUR_VALUE]) {
+	if (touch_mode[touch_id][Touch_Game_Mode][GET_CUR_VALUE]) {
 		LOG_INFO("touch id %d is in game mode, set data from dts", touch_id);
 		corner_filter_value = game_mode_bdata[touch_id].
-				cornerfilter_area_step[touch_mode[touch_id][DATA_MODE_7][GET_CUR_VALUE]];
+				cornerfilter_area_step[touch_mode[touch_id][Touch_Edge_Filter][GET_CUR_VALUE]];
 		for (i = 0; i < MI_GRIP_PARAMETERS_SIZE; i++) {
-			if (touch_mode[touch_id][DATA_MODE_8][GET_CUR_VALUE]) {
+			if (touch_mode[touch_id][Touch_Panel_Orientation][GET_CUR_VALUE]) {
 				grid_updata_value[i] = game_mode_bdata[touch_id].deadzone_filter_hor[i];
 				grid_updata_value[MI_GRIP_PARAMETERS_SIZE + i] = game_mode_bdata[touch_id].edgezone_filter_hor[i];
-				if (touch_mode[touch_id][DATA_MODE_8][GET_CUR_VALUE] == 1) {
+				if (touch_mode[touch_id][Touch_Panel_Orientation][GET_CUR_VALUE] == 1) {
 					grid_updata_value[MI_GRIP_PARAMETERS_SIZE * 2 + i] =
 						(i == 4 || i == 5 || i == GRIP_PARAMETER_NUM * 2 + 4) ? corner_filter_value :
 						(i == GRIP_PARAMETER_NUM * 2 + 3) ? xiaomi_touch_driver_param->hardware_param.y_resolution - corner_filter_value - 1 :
 						game_mode_bdata[touch_id].cornerzone_filter_hor1[i];
-				} else if (touch_mode[touch_id][DATA_MODE_8][GET_CUR_VALUE] == 3) {
+				} else if (touch_mode[touch_id][Touch_Panel_Orientation][GET_CUR_VALUE] == 3) {
 					grid_updata_value[MI_GRIP_PARAMETERS_SIZE * 2 + i] =
 						(i == GRIP_PARAMETER_NUM + 2 || i == GRIP_PARAMETER_NUM * 3 + 2) ? xiaomi_touch_driver_param->hardware_param.x_resolution -corner_filter_value - 1 :
 						(i == GRIP_PARAMETER_NUM + 5) ? corner_filter_value :
@@ -286,13 +286,13 @@ static void xiaomi_touch_cmd_update_work(struct work_struct *work)
 	s8 touch_id = get_work_touch_id(cmd_update_work, work);
 	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(touch_id);
 	long mode_update_flag = 0;
-	int mode_value[DATA_MODE_33];
+	int mode_value[Touch_Mode_NUM];
 	LOG_INFO("touch id %d enter", touch_id);
 	if (!xiaomi_touch_driver_param)
 		return;
 
-	for (i = 0; i < DATA_MODE_33; i++) {
-		if (i <= DATA_MODE_8) {
+	for (i = 0; i < Touch_Mode_NUM; i++) {
+		if (i <= Touch_Panel_Orientation) {
 			if (touch_mode[touch_id][i][SET_CUR_VALUE] > touch_mode[touch_id][i][GET_MAX_VALUE])
 				touch_mode[touch_id][i][SET_CUR_VALUE] = touch_mode[touch_id][i][GET_MAX_VALUE];
 			else if (touch_mode[touch_id][i][SET_CUR_VALUE] < touch_mode[touch_id][i][GET_MIN_VALUE])
@@ -311,7 +311,7 @@ static void xiaomi_touch_cmd_update_work(struct work_struct *work)
 		xiaomi_touch_driver_param->hardware_operation.cmd_update_func(mode_update_flag, mode_value);
 	}
 
-	if (mode_update_flag & ((1 << DATA_MODE_0) | (1 << DATA_MODE_8) | (1 << DATA_MODE_7))) {
+	if (mode_update_flag & ((1 << Touch_Game_Mode) | (1 << Touch_Panel_Orientation) | (1 << Touch_Edge_Filter))) {
 		LOG_INFO("mode_update_flag: 0x%02lX", mode_update_flag);
 		schedule_work(&grid_update_work[touch_id]);
 	}
@@ -432,67 +432,67 @@ int xiaomi_touch_init_touch_mode(s8 touch_id, struct device *dev)
 		game_mode_bdata[touch_id].cornerfilter_area_step, MI_CORNERFILTER_AREA_STEP_SIZE);
 
 	/* Touch Game Mode Switch */
-	touch_mode[touch_id][DATA_MODE_0][GET_MAX_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_0][GET_MIN_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_0][GET_DEF_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_0][SET_CUR_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_0][GET_CUR_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Game_Mode][GET_MAX_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Game_Mode][GET_MIN_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Game_Mode][GET_DEF_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Game_Mode][SET_CUR_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Game_Mode][GET_CUR_VALUE] = game_mode_bdata[touch_id].game_mode[MI_DTS_GET_CUR_INDEX];
 
 	/* Active Mode */
-	touch_mode[touch_id][DATA_MODE_1][GET_MAX_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_1][GET_MIN_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_1][GET_DEF_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_1][SET_CUR_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_1][GET_CUR_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Active_MODE][GET_MAX_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Active_MODE][GET_MIN_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Active_MODE][GET_DEF_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Active_MODE][SET_CUR_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Active_MODE][GET_CUR_VALUE] = game_mode_bdata[touch_id].active_mode[MI_DTS_GET_CUR_INDEX];
 
 	/* Finger Hysteresis */
-	touch_mode[touch_id][DATA_MODE_2][GET_MAX_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_2][GET_MIN_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_2][GET_DEF_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_2][SET_CUR_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_2][GET_CUR_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_UP_THRESHOLD][GET_MAX_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_UP_THRESHOLD][GET_MIN_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_UP_THRESHOLD][GET_DEF_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_UP_THRESHOLD][SET_CUR_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_UP_THRESHOLD][GET_CUR_VALUE] = game_mode_bdata[touch_id].up_threshold[MI_DTS_GET_CUR_INDEX];
 
 	/* Tolerance */
-	touch_mode[touch_id][DATA_MODE_3][GET_MAX_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_3][GET_MIN_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_3][GET_DEF_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_3][SET_CUR_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_3][GET_CUR_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Tolerance][GET_MAX_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Tolerance][GET_MIN_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Tolerance][GET_DEF_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Tolerance][SET_CUR_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Tolerance][GET_CUR_VALUE] = game_mode_bdata[touch_id].tolerance[MI_DTS_GET_CUR_INDEX];
 
 	/*aim sensitivity*/
-	touch_mode[touch_id][DATA_MODE_4][GET_MAX_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_4][GET_MIN_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_4][GET_DEF_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_4][SET_CUR_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_4][GET_CUR_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Aim_Sensitivity][GET_MAX_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Aim_Sensitivity][GET_MIN_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Aim_Sensitivity][GET_DEF_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Aim_Sensitivity][SET_CUR_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Aim_Sensitivity][GET_CUR_VALUE] = game_mode_bdata[touch_id].aim_sensitivity[MI_DTS_GET_CUR_INDEX];
 
 	/*tap stability*/
-	touch_mode[touch_id][DATA_MODE_5][GET_MAX_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_5][GET_MIN_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_5][GET_DEF_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_5][SET_CUR_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_5][GET_CUR_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Tap_Stability][GET_MAX_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Tap_Stability][GET_MIN_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Tap_Stability][GET_DEF_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Tap_Stability][SET_CUR_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Tap_Stability][GET_CUR_VALUE] = game_mode_bdata[touch_id].tap_stability[MI_DTS_GET_CUR_INDEX];
 
 	/* Edge Filter */
-	touch_mode[touch_id][DATA_MODE_7][GET_MAX_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_7][GET_MIN_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_7][GET_DEF_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_7][SET_CUR_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_7][GET_CUR_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Edge_Filter][GET_MAX_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Edge_Filter][GET_MIN_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Edge_Filter][GET_DEF_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Edge_Filter][SET_CUR_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Edge_Filter][GET_CUR_VALUE] = game_mode_bdata[touch_id].edge_filter[MI_DTS_GET_CUR_INDEX];
 
 	/* Orientation */
-	touch_mode[touch_id][DATA_MODE_8][GET_MAX_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_8][GET_MIN_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_8][GET_DEF_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_8][SET_CUR_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_8][GET_CUR_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Panel_Orientation][GET_MAX_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Panel_Orientation][GET_MIN_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Panel_Orientation][GET_DEF_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Panel_Orientation][SET_CUR_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Panel_Orientation][GET_CUR_VALUE] = game_mode_bdata[touch_id].panel_orien[MI_DTS_GET_CUR_INDEX];
 
 	/* Report Rate */
-	touch_mode[touch_id][DATA_MODE_9][GET_MAX_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_MAX_INDEX];
-	touch_mode[touch_id][DATA_MODE_9][GET_MIN_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_MIN_INDEX];
-	touch_mode[touch_id][DATA_MODE_9][GET_DEF_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_DEF_INDEX];
-	touch_mode[touch_id][DATA_MODE_9][SET_CUR_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_SET_CUR_INDEX];
-	touch_mode[touch_id][DATA_MODE_9][GET_CUR_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Report_Rate][GET_MAX_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_MAX_INDEX];
+	touch_mode[touch_id][Touch_Report_Rate][GET_MIN_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_MIN_INDEX];
+	touch_mode[touch_id][Touch_Report_Rate][GET_DEF_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_DEF_INDEX];
+	touch_mode[touch_id][Touch_Report_Rate][SET_CUR_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_SET_CUR_INDEX];
+	touch_mode[touch_id][Touch_Report_Rate][GET_CUR_VALUE] = game_mode_bdata[touch_id].report_rate[MI_DTS_GET_CUR_INDEX];
 
 	INIT_WORK(&switch_mode_work[touch_id], xiaomi_touch_switch_mode_work);
 	INIT_WORK(&cmd_update_work[touch_id], xiaomi_touch_cmd_update_work);
@@ -519,7 +519,7 @@ static void xiaomi_touch_set_mode_long_value(common_data_t *common_data)
 		return;
 	}
 #ifdef TOUCH_SENSORHUB_SUPPORT
-	if (mode == DATA_MODE_32 && len == FOD_VALUE_LEN) {
+	if (mode == Touch_Thp_Gesture_Type && len == FOD_VALUE_LEN) {
 		memcpy(fod_value, common_data->data_buf, FOD_VALUE_LEN * sizeof(s32));
 		if (fod_value[0] == GESTURE_TOUCH_AND_HOLD_UP_EVENT) {
 			xiaomi_set_fod_value(common_data->touch_id);
@@ -528,8 +528,8 @@ static void xiaomi_touch_set_mode_long_value(common_data_t *common_data)
 		}
 	}
 #endif
-	if (mode == DATA_MODE_15) {
-		if (touch_mode[common_data->touch_id][DATA_MODE_0][GET_CUR_VALUE]) {
+	if (mode == Touch_Grip_Mode) {
+		if (touch_mode[common_data->touch_id][Touch_Game_Mode][GET_CUR_VALUE]) {
 			LOG_ERROR("in gamemode,will set by cmd game update update");
 			return;
 		}
@@ -547,7 +547,7 @@ static void xiaomi_touch_get_mode_value(common_data_t *common_data)
 	int *value = (int *)common_data->data_buf;
 	int val_type = common_data->cmd;
 
-	if ((mode < DATA_MODE_33) && (mode >= 0)) {
+	if ((mode < Touch_Mode_NUM) && (mode >= 0)) {
 		value[0] = touch_mode[common_data->touch_id][mode][val_type];
 	}
 	else
@@ -559,7 +559,7 @@ static void xiaomi_touch_get_mode_all(common_data_t *common_data)
 	int mode = common_data->mode;
 	int *val = (int *)common_data->data_buf;
 
-	if ((mode < DATA_MODE_33) && (mode >= 0)) {
+	if ((mode < Touch_Mode_NUM) && (mode >= 0)) {
 		val[0] = touch_mode[common_data->touch_id][mode][GET_CUR_VALUE];
 		val[1] = touch_mode[common_data->touch_id][mode][GET_DEF_VALUE];
 		val[2] = touch_mode[common_data->touch_id][mode][GET_MIN_VALUE];
@@ -580,13 +580,13 @@ static void xiaomi_touch_reset_mode(common_data_t *common_data)
 	}
 
 	LOG_INFO("touch id:%d, mode:%d", common_data->touch_id, mode);
-	if (mode < DATA_MODE_33 && mode > 0) {
+	if (mode < Touch_Mode_NUM && mode > 0) {
 		touch_mode[common_data->touch_id][mode][SET_CUR_VALUE] =
 			touch_mode[common_data->touch_id][mode][GET_DEF_VALUE];
 
 	} else if (mode == 0) {
-		for (i = 0; i < DATA_MODE_9; i++) {
-			if (i == DATA_MODE_8) {
+		for (i = 0; i < Touch_Report_Rate; i++) {
+			if (i == Touch_Panel_Orientation) {
 				touch_mode[common_data->touch_id][i][SET_CUR_VALUE] =
 					touch_mode[common_data->touch_id][i][GET_CUR_VALUE];
 			} else {
@@ -614,12 +614,12 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 			mode, val, xiaomi_touch_driver_param, xiaomi_touch_data);
 		return;
 	}
-	if (mode != DATA_MODE_134 && mode != DATA_MODE_150)
+	if (mode != THP_BASE_STATUS && mode != Touch_Gesture_Type)
 		LOG_INFO("touch_id:%d, mode:%d,val:%d", touch_id, mode, val);
 
-	if (mode >= DATA_MODE_33) {
-		if (mode == DATA_MODE_42) {
-			if (!touch_mode[touch_id][DATA_MODE_0][GET_CUR_VALUE])
+	if (mode >= Touch_Mode_NUM) {
+		if (mode == Touch_Resolution) {
+			if (!touch_mode[touch_id][Touch_Game_Mode][GET_CUR_VALUE])
 				val = 1;
 			else
 				val = ((common_data->data_buf)[0] == 1 ? 16 : 8);
@@ -628,9 +628,9 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 			return;
 		}
 #ifdef TOUCH_SENSORHUB_SUPPORT
-		if (mode == DATA_MODE_48) {
+		if (mode == THP_HAL_INIT_READY) {
 			value = (int)xiaomi_get_gesture_type(touch_id);
-			add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_150, 1, &value);
+			add_common_data_to_buf(0, SET_CUR_VALUE, Touch_Gesture_Type, 1, &value);
 		}
 #endif
 		if (xiaomi_touch_driver_param->hardware_operation.set_mode_value)
@@ -641,7 +641,7 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 	touch_mode[touch_id][mode][SET_CUR_VALUE] = val;
 
 	switch (mode) {
-	case DATA_MODE_19:
+	case Touch_Power_Status:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
 		if (val) {
 			schedule_resume_suspend_work(touch_id, true);
@@ -649,33 +649,33 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 			schedule_resume_suspend_work(touch_id, false);
 		}
 		break;
-	case DATA_MODE_14:
+	case Touch_Doubletap_Mode:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
-		LOG_INFO("DATA_MODE_14 value [%d]", val);
+		LOG_INFO("Touch_Doubletap_Mode value [%d]", val);
 		queue_work(xiaomi_touch_data->event_wq, &switch_mode_work[touch_id]);
 #ifdef TOUCH_SENSORHUB_SUPPORT
 		value = (int)xiaomi_get_gesture_type(touch_id);
-		add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_150, 1, &value);
+		add_common_data_to_buf(0, SET_CUR_VALUE, Touch_Gesture_Type, 1, &value);
 #endif
 		break;
-	case DATA_MODE_11:
+	case Touch_Aod_Enable:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
-		LOG_INFO("DATA_MODE_11 value [%d]", val);
+		LOG_INFO("Touch_Aod_Enable value [%d]", val);
 		queue_work(xiaomi_touch_data->event_wq, &switch_mode_work[touch_id]);
 		break;
-	case DATA_MODE_10:
+	case Touch_Fod_Enable:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
-		LOG_INFO("DATA_MODE_10 value [%d]", val);
+		LOG_INFO("Touch_Fod_Enable value [%d]", val);
 		queue_work(xiaomi_touch_data->event_wq, &switch_mode_work[touch_id]);
 		break;
-	case DATA_MODE_16:
+	case Touch_FodIcon_Enable:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
-		LOG_INFO("DATA_MODE_16 value [%d]", val);
+		LOG_INFO("Touch_FodIcon_Enable value [%d]", val);
 		queue_work(xiaomi_touch_data->event_wq, &switch_mode_work[touch_id]);
 		break;
-	case DATA_MODE_17:
+	case Touch_Nonui_Mode:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
-		LOG_INFO("DATA_MODE_17 value [%d]", val);
+		LOG_INFO("Touch_Nonui_Mode value [%d]", val);
 #ifdef TOUCH_SENSORHUB_SUPPORT
 	if (sensorhub_nonui_enable) {
 		LOG_INFO("ssh status:%d", xiaomi_touch_data->ssh_status);
@@ -689,26 +689,26 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 #endif
 		queue_work(xiaomi_touch_data->event_wq, &switch_mode_work[touch_id]);
 		break;
-	case DATA_MODE_18:
+	case Touch_Debug_Level:
 		LOG_INFO("Touch debug log level [%d]", val);
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
 		current_log_level = val;
 		if (xiaomi_touch_driver_param->hardware_operation.touch_log_level_control_v2)
 			xiaomi_touch_driver_param->hardware_operation.touch_log_level_control_v2(val);
 		break;
-	case DATA_MODE_0:
-	case DATA_MODE_2:
-	case DATA_MODE_3:
-	case DATA_MODE_4:
-	case DATA_MODE_5:
-	case DATA_MODE_7:
-	case DATA_MODE_8:
+	case Touch_Game_Mode:
+	case Touch_UP_THRESHOLD:
+	case Touch_Tolerance:
+	case Touch_Aim_Sensitivity:
+	case Touch_Tap_Stability:
+	case Touch_Edge_Filter:
+	case Touch_Panel_Orientation:
 		if (cmd_update_wq) {
 			queue_work(cmd_update_wq, &cmd_update_work[touch_id]);
 		}
 		break;
 #ifdef TOUCH_SENSORHUB_SUPPORT
-	case DATA_MODE_32:
+	case Touch_Thp_Gesture_Type:
 		if (val == GESTURE_ID_SENSORHUB_ERR) {
 			LOG_INFO("sensorhub err, disable sensorhub thp");
 			xiaomi_notify_sensorhub_enable(touch_id, false);
@@ -718,10 +718,10 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 		}
 		break;
 #endif
-	case DATA_MODE_31:
+	case TOUCH_SENSOR_ENABLE:
 		LOG_INFO("Touch sensor enable: %d", val);
 		value = val > 0 ? XIAOMI_TOUCH_ENABLE_SENSOR : XIAOMI_TOUCH_DISABLE_SENSOR;
-		add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1, &value);
+		add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1, &value);
 		break;
 	default:
 		LOG_ERROR("touch id %d don't not support mode %d", touch_id, mode);
@@ -761,7 +761,7 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 		}
 
 			/* filter the log print, only print log when HAVE FINGER/NO FINGER status change*/
-		if (common_data.cmd == SET_CUR_VALUE && common_data.mode != DATA_MODE_134) {
+		if (common_data.cmd == SET_CUR_VALUE && common_data.mode != THP_BASE_STATUS) {
 			/* print the other log*/
 			LOG_INFO("cmd: %d, mode: %d, data_buf[0]: %d", common_data.cmd, common_data.mode, common_data.data_buf[0]);
 		}
@@ -789,7 +789,7 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 			}
 			break;
 		case SET_CMD_FOR_DRIVER:
-			if (common_data.mode == DATA_MODE_26) {
+			if (common_data.mode == Touch_Palm_Sensor) {
 				update_palm_sensor_value(common_data.data_buf[0]);
 			}
 			mutex_unlock(&ioctl_operation_mutex);
@@ -799,7 +799,7 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 			mutex_unlock(&ioctl_operation_mutex);
 			return 0;
 		case SET_CUR_VALUE:
-			if(common_data.mode == DATA_MODE_151 && common_data.data_buf[0] > 100 && common_data.data_buf[0] < 127) {
+			if(common_data.mode == Touch_GAMETURBOTOOL_FOLLOWUP && common_data.data_buf[0] > 100 && common_data.data_buf[0] < 127) {
 				sendnlmsg(common_data.data_buf[0]);
 				break;
 			}
@@ -832,7 +832,7 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 			return -EINVAL;
 		}
 
-		if (common_data.mode < THP_CMD_BASE || common_data.mode == DATA_MODE_48) {
+		if (common_data.mode < THP_CMD_BASE || common_data.mode == THP_HAL_INIT_READY) {
 			add_common_data_to_buf(common_data.touch_id, common_data.cmd, common_data.mode, common_data.data_len, common_data.data_buf);
 		}
 	}

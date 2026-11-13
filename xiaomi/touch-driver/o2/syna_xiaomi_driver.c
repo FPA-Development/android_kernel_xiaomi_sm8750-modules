@@ -140,7 +140,7 @@ static int syna_htc_ic_setModeValue(common_data_t *common_data)
 
 	LOGI("mode:%d, value_len:%d, value[0] = 0x%x", common_data->mode, value_len, common_data->data_buf[0]);
 
-	if (mode == IC_MODE_44) {
+	if (mode == SET_OPEN_TRANSPORT_MODE) {
 		CMD = (unsigned char)common_data->data_buf[0];
 		new_out_buf = (unsigned char *)&common_data->data_buf[1];
 		cmd_size = value_len - 1;
@@ -204,7 +204,7 @@ static int syna_htc_ic_getModeValue(common_data_t *common_data)
 		return -EIO;
 	}
 
-	if (mode == IC_MODE_44) {
+	if (mode == SET_OPEN_TRANSPORT_MODE) {
 		CMD = (unsigned char)common_data->data_buf[0];
 		out_buf = (unsigned char *)&common_data->data_buf[1];
 		cmd_size = sizeof(unsigned char);
@@ -245,7 +245,7 @@ static int syna_htc_ic_getModeValue(common_data_t *common_data)
 		LOGI("after copy: value[%d] = %d, common_data.data_buf[%d] = %d", i, value[i], i, common_data->data_buf[i]);
 
 #ifdef BIG_SMALL_CONVERT
-	if (mode != IC_MODE_49) {
+	if (mode != SET_TOUCH_IC_INFO) {
 		syna_htc_ic_data_convert((char* )value, value_len);
 	} else {
 		syna_htc_ic_poll_data_convert((char* )value);
@@ -1167,7 +1167,7 @@ static void syna_tmd_signal_work(struct work_struct *work)
 
 #ifdef CONFIG_TOUCH_FACTORY_BUILD
 	LOGI("notify hal to enable fod!\n");
-	thp_send_cmd_to_hal(0, DATA_MODE_10, 1);
+	thp_send_cmd_to_hal(0, Touch_Fod_Enable, 1);
 #endif
 	if (ATOMIC_GET(tcm->tcm_dev->firmware_flashing)) {
 		LOGI("Touch is do fw updating\n");
@@ -1455,65 +1455,65 @@ static void syna_tcm_set_cur_value(int mode, int *value)
 		LOGN("wait finished, its time to go ahead");
 	}
 #endif
-	if (mode != DATA_MODE_134)
+	if (mode != THP_BASE_STATUS)
 		LOGI("mode:%d,value:%d\n", mode, value[0]);
 	else
 		LOGD("mode:%d,value:%d\n", mode, value[0]);
 #ifdef TOUCH_THP_SUPPORT
-	if (mode == DATA_MODE_44) {
+	if (mode == THP_LOCK_SCAN_MODE) {
 		syna_set_ic_mode(ENTER_IDLE_MODE, value);
 		return;
 	}
-	if (mode == DATA_MODE_45) {
+	if (mode == THP_FOD_DOWNUP_CTL) {
 		if (tcm_hcd->enable_touch_raw)
 			syna_set_fod_downup(tcm_hcd, value[0]);
 		return;
 	}
-	if (mode == DATA_MODE_127) {
+	if (mode == THP_IDLE_THD) {
 		if (tcm_hcd->enable_touch_raw)
 			syna_set_ic_mode(SET_DOZE_WAKEUP_THRESHOLD, value);
 		return;
 	}
-	if (mode == DATA_MODE_46) {
+	if (mode == THP_SELF_CAP_SCAN) {
 		//TODO
 		return;
 	}
-	if (mode == DATA_MODE_47) {
+	if (mode == THP_REPORT_POINT_SWITCH) {
 		//TODO
 		return;
 	}
-	if (mode == DATA_MODE_48) {
+	if (mode == THP_HAL_INIT_READY) {
 		schedule_delayed_work(&tcm_hcd->signal_work, 1 * HZ);
 		return;
 	}
 
-	if (mode == DATA_MODE_55) {
+	if (mode == THP_HAL_REPORT_RATE) {
 		syna_set_report_rate(value[0]);
 		if (tcm_hcd->pwr_state == PWR_ON && tcm_hcd->hw_if->ops_enable_irq)
 			tcm_hcd->hw_if->ops_enable_irq(tcm_hcd->hw_if, true);
 		return;
 	}
-	if (mode == DATA_MODE_60) {
+	if (mode == THP_CALIBRATION_EN) {
 		//TODO
 		return;
 	}
-	if (mode == DATA_MODE_115) {
+	if (mode == THP_IDLE_BASALINE_UPDATE) {
 		syna_set_ic_mode(UPDATE_IDLE_BASELINE, value);
 		return;
 	}
-	if (mode == DATA_MODE_129) {
+	if (mode == THP_Input_Vsync_Time) {
 		syna_set_ic_mode(SET_DYNAMIC_REPORT_RATE, value);
 		return;
 	}
-	if (mode == DATA_MODE_134) {
+	if (mode == THP_BASE_STATUS) {
 		syna_set_ic_mode(SET_THP_BASE_STATUS, value);
 		return;
 	}
-	if (mode == DATA_MODE_135) {
+	if (mode == THP_GLOVE_STATUS) {
 		syna_set_ic_mode(SET_THP_GLOVE_STATUS, value);
 		return;
 	}
-	if (mode == DATA_MODE_32) {
+	if (mode == Touch_Thp_Gesture_Type) {
 		if ((xiaomi_get_gesture_type(TOUCH_ID) & GESTURE_DOUBLETAP_EVENT) && value[0] == GESTURE_ID_DOUBLE_TAP) {
 			LOGI("Double Tap\n");
 			input_report_key(input_dev, KEY_WAKEUP, 1);

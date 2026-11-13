@@ -212,7 +212,7 @@ typedef struct hardware_operation {
 	void (*reset_mode)(common_data_t *common_data);
 	void (*ic_switch_mode)(u8 gesture_type);
 	void (*ic_enable_irq)(bool enable);
-	void (*cmd_update_func)(long mode_update_flag, int mode_value[DATA_MODE_33]);
+	void (*cmd_update_func)(long mode_update_flag, int mode_value[Touch_Mode_NUM]);
 	void (*set_mode_long_value)(s32 value[], int length);
 
 	int (*palm_sensor_write)(int on);
@@ -296,7 +296,7 @@ void xiaomi_register_panel_notifier(struct device *dev, s8 touch_id,
 		int panel_event_notifier_tag, int panel_event_notifier_client);
 void xiaomi_unregister_panel_notifier(struct device *dev, s8 touch_id);
 void schedule_resume_suspend_work(s8 touch_id, bool resume_work);
-void driver_update_touch_mode(s8 touch_id, int touch_mode[DATA_MODE_33], long update_mode_mask);
+void driver_update_touch_mode(s8 touch_id, int touch_mode[Touch_Mode_NUM], long update_mode_mask);
 u8 xiaomi_get_gesture_type(s8 touch_id);
 int driver_get_touch_mode(s8 touch_id, int mode);
 #ifdef TOUCH_SENSORHUB_SUPPORT

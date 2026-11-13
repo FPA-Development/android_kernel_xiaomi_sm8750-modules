@@ -316,7 +316,7 @@ static int xiaomi_touch_temp_thread_func(void *data)
 					xiaomi_touch_driver_param->hardware_operation.set_thermal_temp &&
 					abs(cur_temp - last_temp) >= xiaomi_touch_driver_param->hardware_param.temp_change_value) {
 				xiaomi_touch_driver_param->hardware_operation.set_thermal_temp(cur_temp, false);
-				add_common_data_to_buf(0, SET_CUR_VALUE, DATA_MODE_137, 1, &cur_temp);
+				add_common_data_to_buf(0, SET_CUR_VALUE, THP_TEMPERATURE_STATUS, 1, &cur_temp);
 				last_temp = cur_temp;
 			}
 
@@ -579,8 +579,8 @@ static void xiaomi_touch_resume_work(struct work_struct *work)
 		xiaomi_touch_driver_param->hardware_operation.ic_resume_suspend(true, xiaomi_get_gesture_type(touch_id));
 	}
 #ifdef TOUCH_THP_SUPPORT
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1, &value);
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_54, 1, &xiaomi_touch.charging_status);
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1, &value);
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, THP_HAL_CHARGING_STATUS, 1, &xiaomi_touch.charging_status);
 #endif
 	/*reset charge state*/
 	if (xiaomi_touch_driver_param->hardware_operation.ic_set_charge_state) {
@@ -617,13 +617,13 @@ static void xiaomi_touch_suspend_work(struct work_struct *work)
 		xiaomi_touch_driver_param->hardware_operation.ic_resume_suspend(false, xiaomi_get_gesture_type(touch_id));
 	}
 #ifdef TOUCH_THP_SUPPORT
-	add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1, &value);
+	add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1, &value);
 #ifdef TOUCH_SENSORHUB_SUPPORT
 	xiaomi_notify_sensorhub_enable(touch_id, true);
 #ifndef CONFIG_TOUCH_FACTORY_BUILD
-	if (!xiaomi_touch_data->ssh_status && (driver_get_touch_mode(touch_id, DATA_MODE_10) != 0) && (driver_get_touch_mode(touch_id, DATA_MODE_17) == 2)) {
+	if (!xiaomi_touch_data->ssh_status && (driver_get_touch_mode(touch_id, Touch_Fod_Enable) != 0) && (driver_get_touch_mode(touch_id, Touch_Nonui_Mode) == 2)) {
 		LOG_INFO("sleep by nonui mode,need hold wakeup nonui sensor to notify ap reenter gesture");
-		add_common_data_to_buf(touch_id, SET_CUR_VALUE, DATA_MODE_27, 1, &ssh_value);
+		add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1, &ssh_value);
 	}
 #endif
 #endif
@@ -891,7 +891,7 @@ static void xiaomi_power_supply_work(struct work_struct *work)
 		if (!xiaomi_touch_driver_param)
 			break;
 #ifdef TOUCH_THP_SUPPORT
-		add_common_data_to_buf(i, SET_CUR_VALUE, DATA_MODE_54, 1, &charging_status);
+		add_common_data_to_buf(i, SET_CUR_VALUE, THP_HAL_CHARGING_STATUS, 1, &charging_status);
 #endif
 		if (xiaomi_touch_driver_param->hardware_operation.ic_set_charge_state) {
 			xiaomi_touch_driver_param->hardware_operation.ic_set_charge_state(charging_status);
