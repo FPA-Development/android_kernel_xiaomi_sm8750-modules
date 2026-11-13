@@ -755,11 +755,10 @@ static long msm_audio_ion_ioctl(struct file *file, unsigned int ioctl_num,
 		ret = msm_audio_ion_free(mem_handle, ion_data);
 		if (ret < 0) {
 			pr_err("%s Ion free failed %d\n", __func__, ret);
-			if (ret == -ENOENT) {
+			if (ret == -ENOENT)
 				msm_audio_delete_fd_entry(mem_handle, (int)ioctl_param);
-				return 0;
-			}
-			return ret;
+			/* The buffer is gone either way, let the caller move on */
+			return 0;
 		}
 		msm_audio_delete_fd_entry(mem_handle, (int)ioctl_param);
 		break;
