@@ -46,7 +46,7 @@
 #define LPASS_CDC_TX_MACRO_AMIC_UNMUTE_DELAY_MS	100
 #define LPASS_CDC_TX_MACRO_DMIC_HPF_DELAY_MS	300
 #define LPASS_CDC_TX_MACRO_AMIC_HPF_DELAY_MS	300
-#define LPASS_CDC_TX_MACRO_DEC_UNMUTE_DELAY_MS  10
+#define LPASS_CDC_TX_MACRO_DEC_UNMUTE_DELAY_MS  40
 #define LPASS_CDC_TX_MACRO_HS_REMOVAL_MUTE_MS   1200
 
 static int tx_unmute_delay = LPASS_CDC_TX_MACRO_DMIC_UNMUTE_DELAY_MS;
@@ -1428,7 +1428,7 @@ static int lpass_cdc_tx_mute_stream(struct snd_soc_dai *dai, int mute, int strea
 	}
 	if (!mute) {
 		/*
-		 * Schedule dwork after 10MS to unmute the dec to unblock the main thread
+		 * Schedule dwork after 40MS to unmute the dec to unblock the main thread
 		 */
 		tx_priv->tx_dec_unmute_work[dai->id].dai_id = dai->id;
 		queue_delayed_work(system_freezable_wq,
