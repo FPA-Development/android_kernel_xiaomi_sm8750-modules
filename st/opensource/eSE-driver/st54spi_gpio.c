@@ -32,6 +32,8 @@
 #include <linux/cdev.h>
 #include <linux/types.h>
 #include <linux/delay.h>
+#include <linux/hwid.h>
+#include <linux/string.h>
 
 /* Flag ESE_CONF_GPIO_OPEN_RELEASE is to configure nRESET GPIO in
    open function and freeing GPIO in release function */
@@ -53,7 +55,58 @@ struct st54spi_gpio_device {
 	struct spi_device *spi_dev;
 	/* GPIO for st54spi Reset pin (output) */
 	int gpiod_reset;
+	/* Number of users that requested the eSE to be powered */
+	int power_count;
 };
+
+/*
+ * The eSE is shared between several clients. On boards where the reset line
+ * is reference counted, it is only asserted once the last client released
+ * the eSE. Everywhere else it is never asserted from userspace, as resetting
+ * the eSE would tear down the sessions of the other clients.
+ */
+static bool st54spi_gpio_power_counted(void)
+{
+	const char *product = product_name_get();
+
+	return product && !strcmp(product, "xuanyuan");
+}
+
+static int st54spi_gpio_set_power(struct st54spi_gpio_device *st54spi_gpio_dev,
+				  unsigned long on)
+{
+	if (!st54spi_gpio_power_counted()) {
+		if (on)
+			gpio_set_value(st54spi_gpio_dev->gpiod_reset, 1);
+		return 0;
+	}
+
+	pr_info("Original power count = %d\n", st54spi_gpio_dev->power_count);
+	if (on)
+		st54spi_gpio_dev->power_count++;
+	else
+		st54spi_gpio_dev->power_count--;
+	pr_info("Updated power count = %d\n", st54spi_gpio_dev->power_count);
+
+	if (st54spi_gpio_dev->power_count < 0)
+		st54spi_gpio_dev->power_count = 0;
+
+	if (!on && st54spi_gpio_dev->power_count) {
+		pr_info("No execution power count = %d\n",
+			st54spi_gpio_dev->power_count);
+		return 0;
+	}
+
+	pr_info("GPIO setting for power count = %d\n",
+		st54spi_gpio_dev->power_count);
+	gpio_set_value(st54spi_gpio_dev->gpiod_reset, on);
+	if (on)
+		usleep_range(10000, 10001);
+	else
+		usleep_range(3000, 3001);
+
+	return 0;
+}
 
 /** @brief   IOCTL function  to be used to set or get data from upper layer.
  *
@@ -79,10 +132,7 @@ long st54spi_gpio_dev_ioctl(struct file *pfile, unsigned int cmd, unsigned long 
 		break;
 	case ST54SPI_SET_GPIO:
 		if ((arg == 0) || (arg == 1)) {
-			gpio_set_value(st54spi_gpio_dev->gpiod_reset, arg);
-			if (arg == 0) {
-				usleep_range(3000, 3001);
-				}
+			ret = st54spi_gpio_set_power(st54spi_gpio_dev, arg);
 		} else {
 			pr_err("%s bad arg %lu\n", __func__, arg);
 			ret = -ENOIOCTLCMD;
