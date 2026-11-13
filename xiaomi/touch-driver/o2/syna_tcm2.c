@@ -794,7 +794,6 @@ static irqreturn_t syna_dev_isr(int irq, void *data)
 		touch_task = current;
 		sched_setscheduler_nocheck(touch_task, SCHED_FIFO, &par);
 	}
-	/*cpu_latency_qos_add_request(&tcm->pm_qos_req_irq, 0);*/
 	if (unlikely(gpio_get_value(attn->irq_gpio) != attn->irq_on_state))
 		goto exit;
 
@@ -845,7 +844,6 @@ static irqreturn_t syna_dev_isr(int irq, void *data)
 	}
 
 exit:
-/*	cpu_latency_qos_remove_request(&tcm->pm_qos_req_irq);*/
 	return IRQ_HANDLED;
 }
 

@@ -499,7 +499,7 @@ struct syna_tcm {
 #ifdef SYNAPTICS_DEBUGFS_ENABLE
 	struct dentry *debugfs;
 #endif
-	struct pm_qos_request pm_qos_req_irq;
+	struct dev_pm_qos_request dev_pm_qos_req_irq;
 };
 
 /**
