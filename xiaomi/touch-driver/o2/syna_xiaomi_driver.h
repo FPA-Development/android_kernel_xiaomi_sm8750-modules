@@ -64,6 +64,7 @@ struct tp_frame {
 
 struct synaptics_config_info {
 	u8 tp_vendor;
+	u8 dp_vendor;
 	const char *synaptics_cfg_name;
 	const char *synaptics_fw_name;
 	const char *synaptics_limit_name;

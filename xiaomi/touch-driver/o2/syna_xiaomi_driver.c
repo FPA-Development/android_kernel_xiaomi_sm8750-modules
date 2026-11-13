@@ -471,7 +471,7 @@ static void syna_get_config(void)
 	int i = 0;
 
 	for (i = 0; i < xiaomi_bdata.config_array_size; i++) {
-		if (xiaomi_driver_data.lockdown_info[7] == xiaomi_bdata.config_array[i].tp_vendor)
+		if (xiaomi_driver_data.lockdown_info[1] == xiaomi_bdata.config_array[i].dp_vendor)
 			break;
 	}
 	if (i >= xiaomi_bdata.config_array_size) {
@@ -727,6 +727,14 @@ int xiaomi_parse_dt(struct device *dev)
 		} else {
 			config_info->tp_vendor = (u8)value;
 			LOGI("tp vendor: %u\n", config_info->tp_vendor);
+		}
+
+		retval = of_property_read_u32(temp, "synaptics,dp-vendor", &value);
+		if (retval) {
+			LOGE("Unable to read dp vendor\n");
+		} else {
+			config_info->dp_vendor = (u8)value;
+			LOGI("dp vendor: %u\n", config_info->dp_vendor);
 		}
 
 		retval = of_property_read_string(temp, "synaptics,thp-config-name",
