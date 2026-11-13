@@ -2100,6 +2100,8 @@ void cnss_pci_handle_linkdown(struct cnss_pci_data *pci_priv)
 
 	cnss_fatal_err("PCI link down, schedule recovery\n");
 	reinit_completion(&pci_priv->wake_event_complete);
+	plat_priv->pci_link_down_cnt++;
+	cnss_pr_warn("PCI link down count: %u\n", plat_priv->pci_link_down_cnt);
 	cnss_schedule_recovery(&pci_dev->dev, CNSS_REASON_LINK_DOWN);
 }
 

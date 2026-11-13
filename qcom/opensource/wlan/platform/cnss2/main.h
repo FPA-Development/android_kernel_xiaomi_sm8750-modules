@@ -840,6 +840,7 @@ struct cnss_plat_data {
 	u32 sleep_voltage_drop_adjustment;
 	enum cnss_power_ctrl_mode pwr_ctrl_mode;
 	u32 bdf_dnld_fail_count;
+	u32 pci_link_down_cnt;
 };
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0))

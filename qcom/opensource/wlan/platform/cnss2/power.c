@@ -530,8 +530,17 @@ static int cnss_vreg_unvote(struct cnss_plat_data *plat_priv,
 			continue;
 		}
 
-		if (vreg->cfg.need_unvote)
-			cnss_vreg_unvote_single(vreg);
+		if (!vreg->cfg.need_unvote)
+			continue;
+
+		/* Keep the rails voted once the PCIe link has gone down */
+		if (plat_priv->pci_link_down_cnt) {
+			cnss_pr_dbg("Keep vote for Regulator %s after PCIe link down\n",
+				    vreg->cfg.name);
+			continue;
+		}
+
+		cnss_vreg_unvote_single(vreg);
 	}
 
 	return 0;
@@ -797,6 +806,14 @@ static int cnss_clk_on(struct cnss_plat_data *plat_priv,
 	list_for_each_entry(clk_info, clk_list, list) {
 		if (IS_ERR_OR_NULL(clk_info->clk))
 			continue;
+
+		/* Host clocks are only turned on after repeated link downs */
+		if (!clk_info->enabled && plat_priv->pci_link_down_cnt < 2) {
+			cnss_pr_dbg("Skip enabling clock %s\n",
+				    clk_info->cfg.name);
+			continue;
+		}
+
 		ret = cnss_clk_on_single(clk_info);
 		if (ret)
 			break;
