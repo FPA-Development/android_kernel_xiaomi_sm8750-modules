@@ -288,6 +288,7 @@ int pld_ipci_get_fw_lpass_shared_mem(struct device *dev, dma_addr_t *iova,
 	return -EINVAL;
 }
 
+static inline
 int pld_ipci_set_vendor_wonder_priv_data(const void *priv_data)
 {
 	return -EINVAL;
