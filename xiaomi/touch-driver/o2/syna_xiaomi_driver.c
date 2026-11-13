@@ -20,6 +20,8 @@
 #define BIG_SMALL_CONVERT
 #define TOUCH_THP_DEBUG
 #define RETRY_CNT 10
+/* time to wait for the response of a report rate change */
+#define REPORT_RATE_RESP_TIMEOUT_MS (100)
 
 bool debug_log_flag;
 
@@ -35,6 +37,7 @@ enum set_ic_mode_enum {
 	SET_DOZE_WAKEUP_THRESHOLD,
 	SET_THP_BASE_STATUS,
 	SET_THP_GLOVE_STATUS,
+	SET_THP_TEMPERATURE,
 };
 
 static xiaomi_bdata_t xiaomi_bdata;
@@ -905,8 +908,9 @@ static void syna_tcm_fill_qts_vendor_data(struct qts_vendor_data *qts_vendor_dat
 	qts_vendor_data->qts_vendor_ops.post_la_tui_disable = syna_tcm_post_la_tui_disable;
 }
 #endif
-static int syna_tcm_set_touch_multi_function(struct tcm_dev *tcm_dev,
-		unsigned char *config, unsigned int config_size)
+static int syna_tcm_set_touch_multi_function_timeout(struct tcm_dev *tcm_dev,
+		unsigned char *config, unsigned int config_size,
+		unsigned int timeout_ms)
 {
 	int retval = 0;
 	unsigned char resp_code;
@@ -944,13 +948,14 @@ static int syna_tcm_set_touch_multi_function(struct tcm_dev *tcm_dev,
 		goto exit;
 	}
 
-	retval = tcm_dev->write_message(tcm_dev,
+	retval = tcm_dev->write_message_timeout(tcm_dev,
 			CMD_MultiFunction,
 			data,
 			config_size,
 			config_size,
 			&resp_code,
-			RESP_IN_ATTN);
+			RESP_IN_ATTN,
+			timeout_ms);
 	if (retval < 0) {
 		LOGE("Fail to write command CMD_MultiFunction\n");
 		goto exit;
@@ -961,6 +966,13 @@ exit:
 		syna_pal_mem_free((void *)data);
 
 	return retval;
+}
+
+static int syna_tcm_set_touch_multi_function(struct tcm_dev *tcm_dev,
+		unsigned char *config, unsigned int config_size)
+{
+	return syna_tcm_set_touch_multi_function_timeout(tcm_dev, config,
+			config_size, CMD_RESPONSE_TIMEOUT_MS);
 }
 
 static int syna_tcm_set_cmd_noresponse(struct tcm_dev *tcm_dev,
@@ -1038,7 +1050,11 @@ static void syna_set_ic_mode(enum set_ic_mode_enum mode, int *value)
 		return;
 	}
 	if (tcm_hcd->pwr_state != PWR_ON) {
-		LOGI("%s pwr_state is not PWR_ON\n", __func__);
+		LOGW("%s pwr_state is not PWR_ON\n", __func__);
+		return;
+	}
+	if (!tcm_hcd->hw_if->bdata_attn.irq_enabled) {
+		LOGW("IRQ is not enabled somehow, stop proceeding!\n");
 		return;
 	}
 	if (mode == ENTER_IDLE_MODE && value) {
@@ -1154,7 +1170,8 @@ static void syna_set_report_rate(int value)
 	default:
 		break;
 	}
-	retval = syna_tcm_set_touch_multi_function(tcm_hcd->tcm_dev, out_buf, sizeof(out_buf));
+	retval = syna_tcm_set_touch_multi_function_timeout(tcm_hcd->tcm_dev,
+			out_buf, sizeof(out_buf), REPORT_RATE_RESP_TIMEOUT_MS);
 	if (retval < 0) {
 		LOGE("%s Failed to write command %s\n", __func__, STR(CMD_MultiFunction));
 	} else {
