@@ -44,6 +44,7 @@
 #include "wlan_mlme_ucfg_api.h"
 #include "wlan_nan_api.h"
 #include "wlan_p2p_ucfg_api.h"
+#include "wlan_policy_mgr_api.h"
 #endif
 #ifndef CONFIG_REG_CLIENT
 #include <wlan_reg_channel_api.h>
@@ -4113,6 +4114,23 @@ reg_skip_invalid_chan_freq(struct wlan_objmgr_pdev *pdev,
 					}
 				}
 srd_check:
+				/*
+				 * SAP and P2P GO may be restricted to the
+				 * DFS/indoor channel of the only connection.
+				 */
+				if ((wlan_reg_is_freq_indoor(
+				      pdev, res_msg[chan_enum].freq) ||
+				     wlan_reg_is_dfs_for_freq(
+				      pdev, res_msg[chan_enum].freq)) &&
+				    !policy_mgr_is_sap_dfs_indoor_freq_allowed(
+					psoc, res_msg[chan_enum].freq)) {
+					res_msg[chan_enum].iface_mode_mask &=
+						~(iface_mode);
+					if (!res_msg[chan_enum].iface_mode_mask)
+						reg_remove_freq(res_msg,
+								chan_enum);
+				}
+
 				if (!(enable_srd_chan & srd_mask) &&
 				    reg_is_etsi_srd_chan_for_freq(
 					pdev, res_msg[chan_enum].freq)) {
