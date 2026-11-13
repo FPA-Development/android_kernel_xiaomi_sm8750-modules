@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+ifeq (1, $(strip $(CONFIG_TOUCH_FACTORY_SELECT)))
+subdir-ccflags-y += -DCONFIG_TOUCH_FACTORY_BUILD
+endif
+
+ifeq (1, $(strip $(CONFIG_TRUSTED_TOUCH)))
+subdir-ccflags-y += -DCONFIG_TRUSTED_TOUCH
+endif
+
+ifeq (1, $(strip $(CONFIG_TOUCH_THP_SUPPORT)))
+subdir-ccflags-y += -DTOUCH_THP_SUPPORT
+endif
+
+ifeq (1, $(strip $(CONFIG_TOUCH_FOD_SUPPORT)))
+subdir-ccflags-y += -DTOUCH_FOD_SUPPORT
+endif
+
+ifeq (1, $(strip $(CONFIG_TOUCH_KNOCK_SUPPORT)))
+subdir-ccflags-y += -DTOUCH_KNOCK_SUPPORT
+endif
+
+ifeq (1, $(strip $(CONFIG_TOUCH_SENSORHUB_SUPPORT)))
+subdir-ccflags-y += -DTOUCH_SENSORHUB_SUPPORT
+endif
+
+ifeq (1, $(strip $(CONFIG_TOUCH_SPI_CS_CLK_DELAY)))
+subdir-ccflags-y += -DTOUCH_SPI_CS_CLK_DELAY
+endif
+
+obj-m += xiaomi/
+obj-m += o2/

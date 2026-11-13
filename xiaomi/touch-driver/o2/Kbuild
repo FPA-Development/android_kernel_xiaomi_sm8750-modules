@@ -1,33 +1,3 @@
-ifeq (1, $(strip $(CONFIG_TOUCH_FACTORY_SELECT)))
-KBUILD_CPPFLAGS += -DCONFIG_TOUCH_FACTORY_BUILD
-endif
-
-ifeq (1, $(strip $(CONFIG_TRUSTED_TOUCH)))
-KBUILD_CPPFLAGS += -DCONFIG_TRUSTED_TOUCH
-endif
-
-ifeq (1, $(strip $(CONFIG_TOUCH_THP_SUPPORT)))
-KBUILD_CPPFLAGS += -DTOUCH_THP_SUPPORT
-endif
-
-ifeq (1, $(strip $(CONFIG_TOUCH_FOD_SUPPORT)))
-KBUILD_CPPFLAGS += -DTOUCH_FOD_SUPPORT
-endif
-
-ifeq (1, $(strip $(CONFIG_TOUCH_KNOCK_SUPPORT)))
-KBUILD_CPPFLAGS += -DTOUCH_KNOCK_SUPPORT
-endif
-
-ifeq (1, $(strip $(CONFIG_TOUCH_SENSORHUB_SUPPORT)))
-KBUILD_CPPFLAGS += -DTOUCH_SENSORHUB_SUPPORT
-endif
-
-ifeq (1, $(strip $(CONFIG_TOUCH_SPI_CS_CLK_DELAY)))
-KBUILD_CPPFLAGS += -DTOUCH_SPI_CS_CLK_DELAY
-endif
-
-obj-m += ../xiaomi/
-
 KDIR := $(TOP)/kernel_platform/common
 
 LINUX_INC +=	-Iinclude/linux \
@@ -47,8 +17,6 @@ ccflags-y += $(LINUX_INC)
 ifeq ($(call cc-option-yn, -Wmaybe-uninitialized),y)
 EXTRA_CFLAGS += -Wmaybe-uninitialized
 endif
-
-#KBUILD_EXTRA_SYMBOLS +=$(OUT)/obj/vendor/qcom/opensource/display-drivers/msm/Module.symvers
 
 ifeq ($(call cc-option-yn, -Wheader-guard),y)
 EXTRA_CFLAGS += -Wheader-guard
