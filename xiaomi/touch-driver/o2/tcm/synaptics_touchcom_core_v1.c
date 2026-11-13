@@ -40,6 +40,11 @@
 #define TCM_V1_MESSAGE_MARKER 0xa5
 #define TCM_V1_MESSAGE_PADDING 0x5a
 
+/* a longer payload is the leftover of a pending command */
+#define TCM_V1_MAX_PAYLOAD_LENGTH (2500)
+/* reads to clear the buffer of device once a command is pending */
+#define TCM_V1_CLEAR_BUFFER_READS (10)
+
 static unsigned int tcm_read_max_length = 0;
 
 /**
@@ -790,6 +795,62 @@ exit:
 }
 
 /**
+ * syna_tcm_v1_clear_buffer()
+ *
+ * Read out the data left in the buffer of device, until the device
+ * returns an idle packet or the given number of reads is reached.
+ *
+ * Caller must hold the rw_mutex and the lock of buffer.in.
+ *
+ * @param
+ *    [ in] tcm_dev: the device handle
+ *    [ in] count:   maximum number of reads
+ *
+ * @return
+ *    0 or positive value on success; otherwise, on error.
+ */
+static int syna_tcm_v1_clear_buffer(struct tcm_dev *tcm_dev,
+		unsigned int count)
+{
+	int retval;
+	unsigned int idx;
+	unsigned char *buf;
+	struct tcm_message_data_blob *tcm_msg = &tcm_dev->msg_data;
+
+	if (tcm_read_max_length > tcm_msg->in.buf_size) {
+		retval = syna_tcm_buf_alloc(&tcm_msg->in, tcm_read_max_length);
+		if (retval < 0) {
+			LOGE("Fail to allocate memory for buf_in\n");
+			return retval;
+		}
+	}
+
+	for (idx = 0; idx < count; idx++) {
+		retval = syna_tcm_v1_read(tcm_dev,
+				tcm_read_max_length,
+				tcm_msg->in.buf,
+				tcm_msg->in.buf_size,
+				false);
+		if (retval < 0) {
+			LOGE("Fail to clear ic spi buffer\n");
+			continue;
+		}
+
+		buf = tcm_msg->in.buf;
+		LOGE("buffer data:%x %x %x\n", buf[0], buf[1], buf[2]);
+
+		if ((buf[0] == TCM_V1_MESSAGE_MARKER) &&
+			((buf[1] == TCM_V1_MESSAGE_PADDING) ||
+			(buf[1] == STATUS_IDLE))) {
+			LOGE("ic spi buffer is empty!\n");
+			break;
+		}
+	}
+
+	return 0;
+}
+
+/**
  * syna_tcm_v1_read_message()
  *
  * Read in a TouchCom packet from device.
@@ -833,6 +894,20 @@ static int syna_tcm_v1_read_message(struct tcm_dev *tcm_dev,
 	syna_pal_mutex_lock(rw_mutex);
 
 	syna_tcm_buf_lock(&tcm_msg->in);
+
+	/* clear the buffer of device if the previous message was too long */
+	if ((tcm_msg->payload_length > TCM_V1_MAX_PAYLOAD_LENGTH) &&
+		(tcm_read_max_length > 0)) {
+		len = tcm_msg->payload_length / tcm_read_max_length + 1;
+		LOGE("receive pending code, payload_length = %d, tcm_read_max_length = %d, read count = %d, try to clear ic spi buffer\n",
+			tcm_msg->payload_length, tcm_read_max_length, len);
+
+		retval = syna_tcm_v1_clear_buffer(tcm_dev, len);
+		if (retval < 0) {
+			syna_tcm_buf_unlock(&tcm_msg->in);
+			goto exit;
+		}
+	}
 
 	/* read in the message header */
 	len = MESSAGE_HEADER_SIZE;
@@ -1011,6 +1086,21 @@ do_dispatch:
 
 		if (tcm_msg->status_report_code < REPORT_IDENTIFY)
 			tcm_msg->predict_length = 0;
+	}
+
+	/* clear the buffer of device if the previous command is pending */
+	if (tcm_msg->status_report_code == STATUS_PREVIOUS_COMMAND_PENDING) {
+		syna_tcm_buf_lock(&tcm_msg->in);
+
+		LOGE("receive pending code,try to clear ic spi buffer\n");
+
+		retval = syna_tcm_v1_clear_buffer(tcm_dev,
+				TCM_V1_CLEAR_BUFFER_READS);
+
+		syna_tcm_buf_unlock(&tcm_msg->in);
+
+		if (retval < 0)
+			goto exit;
 	}
 
 	retval = 0;
