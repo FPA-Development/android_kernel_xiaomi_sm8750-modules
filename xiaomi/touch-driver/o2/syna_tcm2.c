@@ -97,6 +97,18 @@ static unsigned char custom_touch_format[] = {
 #endif
 #define RESET_ON_DELAY_MS (60)
 
+/**
+ * @section: CMD_COMPLETION_POLLING_MS
+ *           The interval to check whether the command in progress
+ *           has been completed.
+ *
+ * @section: SUSPEND_CMD_COMPLETION_TIMEOUT_MS
+ *           The time to wait for the command in progress to be
+ *           completed before disabling the irq in suspend.
+ */
+#define CMD_COMPLETION_POLLING_MS (20)
+#define SUSPEND_CMD_COMPLETION_TIMEOUT_MS (60)
+
 
 /**
  * @section: POWER_ALIVE_AT_SUSPEND
@@ -121,6 +133,41 @@ static int fod_id = TOUCH_FOD_INVALID_ID;
 /* indicate that the device has been put into suspend state */
 static bool inSuspendMode;
 
+
+/**
+ * syna_dev_wait_for_cmd_completion()
+ *
+ * Wait for the command in progress to be completed. Its response is read
+ * in by the ISR, so this must be done before disabling the irq.
+ *
+ * @param
+ *    [ in] tcm:        the driver handle
+ *    [ in] timeout_ms: maximum time to wait
+ *
+ * @return
+ *    none.
+ */
+void syna_dev_wait_for_cmd_completion(struct syna_tcm *tcm,
+		unsigned int timeout_ms)
+{
+	struct tcm_message_data_blob *tcm_msg = &tcm->tcm_dev->msg_data;
+	unsigned int waited_ms = 0;
+
+	if (ATOMIC_GET(tcm_msg->command_status) != CMD_STATE_BUSY)
+		return;
+
+	LOGE("cmd is busy, wait for it to finish\n");
+
+	while (waited_ms < timeout_ms) {
+		syna_pal_sleep_ms(CMD_COMPLETION_POLLING_MS);
+		waited_ms += CMD_COMPLETION_POLLING_MS;
+
+		if (ATOMIC_GET(tcm_msg->command_status) == CMD_STATE_IDLE) {
+			LOGE("timeout:%d\n", waited_ms);
+			break;
+		}
+	}
+}
 
 #ifdef POWER_ALIVE_AT_SUSPEND
 /**
@@ -1267,6 +1314,9 @@ static int syna_dev_resume(struct device *dev)
 			tcm->fod_finger = false;
 			if ((retval < 0) || (status != REPORT_IDENTIFY)) {
 				LOGE("Fail to complete hw reset, retval = %d, status = 0x%x \n", retval, status);
+				/* try to recover the device by a sw reset */
+				if (syna_tcm_reset(tcm->tcm_dev) < 0)
+					LOGE("Fail to do sw reset\n");
 				retval = -EIO;
 				goto exit;
 			}
@@ -1283,17 +1333,22 @@ static int syna_dev_resume(struct device *dev)
 		/* enter normal power mode */
 		for (time = 0; time < 3; time++) {
 			retval = syna_dev_enter_normal_sensing(tcm);
-			if (retval < 0) {
-				LOGE("Fail to enter normal power mode, retry = %d \n", time);
-			} else {
-				LOGI("enter normal power mode\n");
+			if (retval >= 0)
 				break;
-			}
+
+			LOGE("Fail to enter normal power mode, retry = %d \n", time);
 		}
 		if (time == 3) {
-			LOGE("have tried 3 times, Fail to enter normal power mode\n");
-			goto exit;
+			LOGE("have tried 3 times, Fail to enter normal power mode,clear buffer and retry\n");
+			/* read out the event left in the device, then try again */
+			syna_tcm_get_event_data(tcm->tcm_dev, &status, NULL);
+			retval = syna_dev_enter_normal_sensing(tcm);
+			if (retval < 0) {
+				LOGE("Fail to enter normal power mode\n");
+				goto exit;
+			}
 		}
+		LOGI("enter normal power mode\n");
 #endif
 	}
 #ifdef REZERO_ON_RESUME
@@ -1366,6 +1421,7 @@ static int syna_dev_suspend(struct device *dev)
 	retval = syna_dev_enter_lowpwr_sensing(tcm);
 	if (retval < 0) {
 		LOGE("Fail to enter suspended power mode\n");
+		tcm->pwr_state = PWR_OFF;
 		return retval;
 	}
 	if (xiaomi_get_gesture_type(TOUCH_ID))
@@ -1387,6 +1443,8 @@ static int syna_dev_suspend(struct device *dev)
 #endif
 	/* disable irq */
 	if (irq_disabled && (hw_if->ops_enable_irq)) {
+		syna_dev_wait_for_cmd_completion(tcm,
+				SUSPEND_CMD_COMPLETION_TIMEOUT_MS);
 		hw_if->ops_enable_irq(hw_if, false);
 		if (tcm->irq_wake) {
 			disable_irq_wake(hw_if->bdata_attn.irq_id);

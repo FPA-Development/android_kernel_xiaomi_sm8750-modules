@@ -546,6 +546,8 @@ extern struct pinctrl_state * __must_check pinctrl_lookup_state(struct pinctrl *
 extern void devm_pinctrl_put(struct pinctrl *p);
 void syna_touch_fod_down_event(struct syna_tcm *tcm, int fod_x, int fod_y, int fod_overlap, int fod_area);
 void syna_touch_fod_up_event(struct syna_tcm *tcm);
+void syna_dev_wait_for_cmd_completion(struct syna_tcm *tcm,
+		unsigned int timeout_ms);
 /* end add by xiaomi */
 
 

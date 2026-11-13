@@ -1381,6 +1381,9 @@ static void syna_tcm_enable_irq(bool enable)
 	}
 	if (tcm->hw_if->ops_enable_irq) {
 		LOGD("enable:%d\n", enable);
+		if (!enable)
+			syna_dev_wait_for_cmd_completion(tcm,
+					CMD_RESPONSE_TIMEOUT_MS);
 		tcm->hw_if->ops_enable_irq(tcm->hw_if, enable);
 	} else {
 		return;
