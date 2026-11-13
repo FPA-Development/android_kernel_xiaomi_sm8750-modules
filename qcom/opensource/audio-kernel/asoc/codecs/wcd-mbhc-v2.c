@@ -26,6 +26,7 @@
 #endif
 #include <linux/usb/typec.h>
 #include <sound/soc.h>
+#include "lpass-cdc/lpass-cdc.h"
 #include <sound/jack.h>
 #include <asoc/msm-cdc-pinctrl.h>
 #include <asoc/wcdcal-hwdep.h>
@@ -584,6 +585,10 @@ void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 	pr_debug("%s: enter insertion %d hph_status %x\n",
 		 __func__, insertion, mbhc->hph_status);
 	if (!insertion) {
+		/* Keep the headset mic unplug noise out of the capture path */
+		if (mbhc->hph_status == SND_JACK_HEADSET)
+			lpass_cdc_tx_macro_mute_hs();
+
 		/* Report removal */
 		mbhc->hph_status &= ~jack_type;
 		/*

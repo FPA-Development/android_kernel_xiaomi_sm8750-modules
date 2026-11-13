@@ -47,6 +47,7 @@
 #define LPASS_CDC_TX_MACRO_DMIC_HPF_DELAY_MS	300
 #define LPASS_CDC_TX_MACRO_AMIC_HPF_DELAY_MS	300
 #define LPASS_CDC_TX_MACRO_DEC_UNMUTE_DELAY_MS  10
+#define LPASS_CDC_TX_MACRO_HS_REMOVAL_MUTE_MS   1200
 
 static int tx_unmute_delay = LPASS_CDC_TX_MACRO_DMIC_UNMUTE_DELAY_MS;
 module_param(tx_unmute_delay, int, 0664);
@@ -140,6 +141,8 @@ struct lpass_cdc_tx_macro_priv {
 	struct tx_dec_unmute_work tx_dec_unmute_work[LPASS_CDC_TX_MACRO_MAX_DAIS];
 	struct hpf_work tx_hpf_work[NUM_DECIMATORS];
 	struct tx_mute_work tx_mute_dwork[NUM_DECIMATORS];
+	struct delayed_work tx_hs_unmute_dwork;
+	u16 tx_path_ctl_before_hs_mute[NUM_DECIMATORS];
 	u16 dmic_clk_div[MIC_PAIR_MAX];
 	u32 version;
 	unsigned long active_ch_mask[LPASS_CDC_TX_MACRO_MAX_DAIS];
@@ -730,6 +733,63 @@ err:
 	kfree(w_name);
 	return ret;
 }
+
+/* TX macro instance, for lpass_cdc_tx_macro_mute_hs() */
+static struct lpass_cdc_tx_macro_priv *lpass_cdc_tx_priv;
+
+static void lpass_cdc_tx_macro_hs_unmute_work(struct work_struct *work)
+{
+	struct lpass_cdc_tx_macro_priv *tx_priv =
+		container_of(to_delayed_work(work),
+			     struct lpass_cdc_tx_macro_priv, tx_hs_unmute_dwork);
+	struct snd_soc_component *component = tx_priv->component;
+	u16 decimator, tx_path_ctl_reg;
+
+	for_each_set_bit(decimator,
+			 &tx_priv->active_ch_mask[LPASS_CDC_TX_MACRO_AIF1_CAP],
+			 LPASS_CDC_TX_MACRO_DEC_MAX) {
+		tx_path_ctl_reg = LPASS_CDC_TX0_TX_PATH_CTL +
+			LPASS_CDC_TX_MACRO_TX_PATH_OFFSET * decimator;
+		/* Restore the PGA mute bit to its state before the removal */
+		snd_soc_component_update_bits(component, tx_path_ctl_reg, 0x10,
+			tx_priv->tx_path_ctl_before_hs_mute[decimator]);
+	}
+}
+
+/**
+ * lpass_cdc_tx_macro_mute_hs - Mute capture while a headset is removed
+ *
+ * Mutes the TX paths of the primary capture DAI for a while, so pulling
+ * out a headset during a recording or call does not send the unplug
+ * noise of the headset microphone upstream.
+ */
+void lpass_cdc_tx_macro_mute_hs(void)
+{
+	struct lpass_cdc_tx_macro_priv *tx_priv = lpass_cdc_tx_priv;
+	struct snd_soc_component *component;
+	u16 decimator, tx_path_ctl_reg;
+
+	if (!tx_priv || !tx_priv->component)
+		return;
+
+	component = tx_priv->component;
+
+	for_each_set_bit(decimator,
+			 &tx_priv->active_ch_mask[LPASS_CDC_TX_MACRO_AIF1_CAP],
+			 LPASS_CDC_TX_MACRO_DEC_MAX) {
+		tx_path_ctl_reg = LPASS_CDC_TX0_TX_PATH_CTL +
+			LPASS_CDC_TX_MACRO_TX_PATH_OFFSET * decimator;
+		tx_priv->tx_path_ctl_before_hs_mute[decimator] =
+			snd_soc_component_read(component, tx_path_ctl_reg);
+		/* Enable TX PGA mute */
+		snd_soc_component_update_bits(component, tx_path_ctl_reg,
+					      0x10, 0x10);
+	}
+
+	schedule_delayed_work(&tx_priv->tx_hs_unmute_dwork,
+		msecs_to_jiffies(LPASS_CDC_TX_MACRO_HS_REMOVAL_MUTE_MS));
+}
+EXPORT_SYMBOL(lpass_cdc_tx_macro_mute_hs);
 
 static int lpass_cdc_tx_macro_dec_mode_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
@@ -2238,6 +2298,8 @@ static int lpass_cdc_tx_macro_probe(struct platform_device *pdev)
 	if (!tx_priv)
 		return -ENOMEM;
 	platform_set_drvdata(pdev, tx_priv);
+	INIT_DELAYED_WORK(&tx_priv->tx_hs_unmute_dwork,
+			  lpass_cdc_tx_macro_hs_unmute_work);
 
 	tx_priv->dev = &pdev->dev;
 	ret = of_property_read_u32(pdev->dev.of_node, "reg",
@@ -2297,6 +2359,8 @@ static int lpass_cdc_tx_macro_probe(struct platform_device *pdev)
 	pm_suspend_ignore_children(&pdev->dev, true);
 	pm_runtime_enable(&pdev->dev);
 
+	lpass_cdc_tx_priv = tx_priv;
+
 	return 0;
 err_reg_macro:
 	mutex_destroy(&tx_priv->mclk_lock);
@@ -2314,6 +2378,8 @@ static int lpass_cdc_tx_macro_remove(struct platform_device *pdev)
 	if (!tx_priv)
 		return -EINVAL;
 
+	lpass_cdc_tx_priv = NULL;
+	cancel_delayed_work_sync(&tx_priv->tx_hs_unmute_dwork);
 	for (dai_idx = 0; dai_idx < LPASS_CDC_TX_MACRO_MAX_DAIS; ++dai_idx)
 		cancel_delayed_work_sync(
 				&tx_priv->tx_dec_unmute_work[dai_idx].dwork);
