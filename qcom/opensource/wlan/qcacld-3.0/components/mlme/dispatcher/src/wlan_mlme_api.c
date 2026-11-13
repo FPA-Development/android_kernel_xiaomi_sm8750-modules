@@ -5181,6 +5181,21 @@ QDF_STATUS wlan_mlme_get_oem_eht_mlo_config(struct wlan_objmgr_psoc *psoc,
 
 	return QDF_STATUS_SUCCESS;
 }
+
+QDF_STATUS
+wlan_mlme_get_eht_mlo_crypto_open_allow(struct wlan_objmgr_psoc *psoc,
+					bool *value)
+{
+	struct wlan_mlme_psoc_ext_obj *mlme_obj;
+
+	mlme_obj = mlme_get_psoc_ext_obj(psoc);
+	if (!mlme_obj)
+		return QDF_STATUS_E_FAILURE;
+
+	*value = mlme_obj->cfg.gen.eht_mlo_crypto_open_allow;
+
+	return QDF_STATUS_SUCCESS;
+}
 #endif
 
 QDF_STATUS wlan_mlme_is_sap_uapsd_enabled(struct wlan_objmgr_psoc *psoc,

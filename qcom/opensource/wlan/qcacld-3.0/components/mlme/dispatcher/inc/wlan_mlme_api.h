@@ -2830,6 +2830,18 @@ bool mlme_get_bss_11be_allowed(struct wlan_objmgr_psoc *psoc,
  */
 QDF_STATUS wlan_mlme_get_oem_eht_mlo_config(struct wlan_objmgr_psoc *psoc,
 					    uint32_t *oem_eht_cfg);
+
+/**
+ * wlan_mlme_get_eht_mlo_crypto_open_allow() - Get whether EHT/MLO
+ * connections to open networks are allowed
+ * @psoc: PSOC object manager
+ * @value: Pointer to fill the configuration
+ *
+ * Return: QDF_STATUS
+ */
+QDF_STATUS
+wlan_mlme_get_eht_mlo_crypto_open_allow(struct wlan_objmgr_psoc *psoc,
+					bool *value);
 #else
 static inline
 bool mlme_get_bss_11be_allowed(struct wlan_objmgr_psoc *psoc,
@@ -2845,6 +2857,14 @@ wlan_mlme_get_oem_eht_mlo_config(struct wlan_objmgr_psoc *psoc,
 				 uint32_t *oem_eht_cfg)
 {
 	*oem_eht_cfg = 0x0;
+	return QDF_STATUS_SUCCESS;
+}
+
+static inline QDF_STATUS
+wlan_mlme_get_eht_mlo_crypto_open_allow(struct wlan_objmgr_psoc *psoc,
+					bool *value)
+{
+	*value = false;
 	return QDF_STATUS_SUCCESS;
 }
 #endif

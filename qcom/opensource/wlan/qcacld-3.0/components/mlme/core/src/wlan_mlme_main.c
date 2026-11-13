@@ -1158,6 +1158,8 @@ static inline void mlme_init_oem_eht_mlo_cfg(struct wlan_objmgr_psoc *psoc,
 {
 	gen->oem_eht_mlo_crypto_bitmap =
 				cfg_get(psoc, CFG_OEM_EHT_MLO_CRYPTO_BITMAP);
+	gen->eht_mlo_crypto_open_allow =
+				cfg_get(psoc, CFG_EHT_MLO_CRYPTO_OPEN_ALLOW);
 }
 #else
 static inline void mlme_init_oem_eht_mlo_cfg(struct wlan_objmgr_psoc *psoc,

@@ -254,8 +254,35 @@ enum wlan_epcs_frame {
 		CFG_VALUE_OR_DEFAULT, \
 		"OEM control to allow/disallow crypto to EHT configuration")
 
+/*
+ * <ini>
+ * eht_mlo_crypto_open_allow - Allow EHT/MLO connections to open networks
+ * @Min: 0
+ * @Max: 1
+ * @Default: 0
+ *
+ * This ini is used to allow EHT and MLO connections to APs which do not
+ * advertise an RSN IE (open security).
+ *
+ * Related: oem_eht_mlo_crypto_bitmap
+ *
+ * Supported Feature: 11BE STA
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_EHT_MLO_CRYPTO_OPEN_ALLOW CFG_INI_UINT( \
+		"eht_mlo_crypto_open_allow", \
+		0, \
+		1, \
+		0, \
+		CFG_VALUE_OR_DEFAULT, \
+		"Allow EHT/MLO connections to open networks")
+
 #define CFG_OEM_EHT_MLO_CRYPTO_BITMAP_SUPPORTED \
-			CFG(CFG_OEM_EHT_MLO_CRYPTO_BITMAP)
+			CFG(CFG_OEM_EHT_MLO_CRYPTO_BITMAP) \
+			CFG(CFG_EHT_MLO_CRYPTO_OPEN_ALLOW)
 #else
 #define CFG_OEM_EHT_MLO_CRYPTO_BITMAP_SUPPORTED
 #endif

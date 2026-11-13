@@ -1513,6 +1513,7 @@ struct wlan_mlme_aux_dev_caps {
  * @enable_sap_emlsr_mode: 11BE eMLSR mode support for sap
  * @oem_eht_mlo_crypto_bitmap: Bitmap of APs allowed by OEMs to connect
  * in EHT/MLO.
+ * @eht_mlo_crypto_open_allow: Allow EHT/MLO connections to open networks
  * @safe_mode_enable: safe mode to bypass some strict 6 GHz checks for
  * connection, bypass strict power levels
  * @sr_enable_modes: modes for which SR(Spatial Reuse) is enabled
@@ -1580,6 +1581,7 @@ struct wlan_mlme_generic {
 #endif
 #ifdef WLAN_FEATURE_11BE
 	uint32_t oem_eht_mlo_crypto_bitmap;
+	bool eht_mlo_crypto_open_allow;
 #endif
 #ifdef WLAN_FEATURE_MCC_QUOTA
 	struct wlan_user_mcc_quota user_mcc_quota;
