@@ -237,6 +237,14 @@ enum tcm_app_status {
 };
 
 /**
+ * @section: Status of Bootloader
+ *
+ * The current status is defined in Boot Info Packet.
+ *  0xfe: the bootloader is running due to a bad application firmware.
+ */
+#define BOOT_STATUS_BAD_APP_FIRMWARE (0xfe)
+
+/**
  * @section: Field IDs in Dynamic Configuration
  *
  * The codes specify the generic dynamic configuration options.

@@ -1094,6 +1094,44 @@ exit:
 }
 
 /**
+ * syna_tcm_print_boot_info()
+ *
+ * Print the content of the given boot info packet.
+ *
+ * @param
+ *    [ in] boot_info: the boot info packet to print
+ *
+ * @return
+ *    none.
+ */
+void syna_tcm_print_boot_info(struct tcm_boot_info *boot_info)
+{
+	LOGE("boot_info->version: %u\n", boot_info->version);
+	LOGE("boot_info->status: %u\n", boot_info->status);
+	LOGE("boot_info->asic_id[0]: %u, asic_id[1]: %u\n",
+		boot_info->asic_id[0], boot_info->asic_id[1]);
+	LOGE("boot_info->write_block_size_words: %u\n",
+		boot_info->write_block_size_words);
+	LOGE("boot_info->erase_page_size_words[0]: %u, erase_page_size_words[1]: %u\n",
+		boot_info->erase_page_size_words[0],
+		boot_info->erase_page_size_words[1]);
+	LOGE("boot_info->max_write_payload_size[0]: %u, max_write_payload_size[1]: %u\n",
+		boot_info->max_write_payload_size[0],
+		boot_info->max_write_payload_size[1]);
+	LOGE("boot_info->last_reset_reason: %u\n",
+		boot_info->last_reset_reason);
+	LOGE("boot_info->pc_at_time_of_last_reset[0]:%u, pc_at_time_of_last_reset[1]:%u\n",
+		boot_info->pc_at_time_of_last_reset[0],
+		boot_info->pc_at_time_of_last_reset[1]);
+	LOGE("boot_info->boot_config_start_block[0]:%u, boot_config_start_block[1]:%u\n",
+		boot_info->boot_config_start_block[0],
+		boot_info->boot_config_start_block[1]);
+	LOGE("boot_info->boot_config_size_blocks[0]:%u, boot_config_size_blocks[1]:%u\n",
+		boot_info->boot_config_size_blocks[0],
+		boot_info->boot_config_size_blocks[1]);
+}
+
+/**
  * syna_tcm_get_app_info()
  *
  * Implement the application fw command code to request an application

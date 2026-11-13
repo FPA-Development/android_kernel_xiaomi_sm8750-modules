@@ -227,6 +227,19 @@ int syna_tcm_get_boot_info(struct tcm_dev *tcm_dev,
 		struct tcm_boot_info *boot_info);
 
 /**
+ * syna_tcm_print_boot_info()
+ *
+ * Print the content of the given boot info packet.
+ *
+ * @param
+ *    [ in] boot_info: the boot info packet to print
+ *
+ * @return
+ *    none.
+ */
+void syna_tcm_print_boot_info(struct tcm_boot_info *boot_info);
+
+/**
  * syna_tcm_get_app_info()
  *
  * Implement the application fw command code to request an application

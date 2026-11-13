@@ -118,76 +118,9 @@ static unsigned char custom_touch_format[] = {
 #endif
 static unsigned int pre_overlap = 0;
 static int fod_id = TOUCH_FOD_INVALID_ID;
+/* indicate that the device has been put into suspend state */
+static bool inSuspendMode;
 
-
-#if defined(ENABLE_HELPER)
-/**
- * syna_dev_reset_detected_cb()
- *
- * Callback to assign a task to helper thread.
- *
- * Please be noted that this function will be invoked in ISR so don't
- * issue another touchcomm command here.
- *
- * @param
- *    [ in] callback_data: pointer to caller data
- *
- * @return
- *    on success, 0 or positive value; otherwise, negative value on error.
- */
-static void syna_dev_reset_detected_cb(void *callback_data)
-{
-	struct syna_tcm *tcm = (struct syna_tcm *)callback_data;
-
-	if (!tcm->helper.workqueue) {
-		LOGW("No helper thread created\n");
-		return;
-	}
-
-#ifdef RESET_ON_RESUME
-	if (tcm->pwr_state != PWR_ON)
-		return;
-#endif
-
-	if (ATOMIC_GET(tcm->helper.task) == HELP_NONE) {
-		ATOMIC_SET(tcm->helper.task, HELP_RESET_DETECTED);
-
-		queue_work(tcm->helper.workqueue, &tcm->helper.work);
-	}
-}
-/**
- * syna_dev_helper_work()
- *
- * According to the given task, perform the delayed work
- *
- * @param
- *    [ in] work: data for work used
- *
- * @return
- *    on success, 0; otherwise, negative value on error.
- */
-static void syna_dev_helper_work(struct work_struct *work)
-{
-	unsigned char task;
-	struct syna_tcm_helper *helper =
-			container_of(work, struct syna_tcm_helper, work);
-	struct syna_tcm *tcm =
-			container_of(helper, struct syna_tcm, helper);
-
-	task = ATOMIC_GET(helper->task);
-
-	switch (task) {
-	case HELP_RESET_DETECTED:
-		LOGD("Reset caught (device mode:0x%x)\n",
-			tcm->tcm_dev->dev_mode);
-		break;
-	default:
-		break;
-	}
-
-	ATOMIC_SET(helper->task, HELP_NONE);
-}
-#endif
 
 #ifdef POWER_ALIVE_AT_SUSPEND
 /**
@@ -1273,8 +1206,10 @@ static int syna_dev_resume(struct device *dev)
 	int time;
 #endif
 	pct = &tcm->hw_if->bdata_pct;
-	/* exit directly if device isn't in suspend state */
 
+	inSuspendMode = false;
+
+	/* exit directly if device isn't in suspend state */
 	if (tcm->pwr_state == PWR_ON)
 		return 0;
 
@@ -1422,6 +1357,8 @@ static int syna_dev_suspend(struct device *dev)
 
 	LOGI("Prepare to suspend device\n");
 
+	inSuspendMode = true;
+
 	/* clear all input events  */
 	syna_dev_free_input_events(tcm);
 
@@ -1498,6 +1435,156 @@ static int syna_dev_suspend(struct device *dev)
 
 	return 0;
 }
+
+#if defined(ENABLE_HELPER)
+/**
+ * syna_dev_reset_detected_cb()
+ *
+ * Callback to assign a task to helper thread.
+ *
+ * Please be noted that this function will be invoked in ISR so don't
+ * issue another touchcomm command here.
+ *
+ * @param
+ *    [ in] callback_data: pointer to caller data
+ *
+ * @return
+ *    on success, 0 or positive value; otherwise, negative value on error.
+ */
+static void syna_dev_reset_detected_cb(void *callback_data)
+{
+	struct syna_tcm *tcm = (struct syna_tcm *)callback_data;
+
+	if (!tcm->helper.workqueue) {
+		LOGW("No helper thread created\n");
+		return;
+	}
+
+	LOGI("Enter helper.task state:%d\n", ATOMIC_GET(tcm->helper.task));
+
+	if (ATOMIC_GET(tcm->helper.task) == HELP_NONE) {
+		ATOMIC_SET(tcm->helper.task, HELP_RESET_DETECTED);
+
+		queue_work(tcm->helper.workqueue, &tcm->helper.work);
+	}
+}
+
+/**
+ * syna_dev_recover_from_reset()
+ *
+ * Check the device after an unexpected reset. If the device stays in
+ * bootloader due to a bad application firmware, do the firmware update,
+ * and then restore the suspended power mode if the device was suspended.
+ *
+ * @param
+ *    [ in] tcm: the driver handle
+ *
+ * @return
+ *    none.
+ */
+static void syna_dev_recover_from_reset(struct syna_tcm *tcm)
+{
+	int retval;
+	int firmware_flashing;
+	struct tcm_boot_info boot_info = { 0 };
+	struct syna_hw_interface *hw_if = tcm->hw_if;
+
+	LOGI("dev_mode: %d\n", tcm->tcm_dev->dev_mode);
+
+	if (!IS_BOOTLOADER_MODE(tcm->tcm_dev->dev_mode))
+		return;
+
+	retval = syna_tcm_get_boot_info(tcm->tcm_dev, &boot_info);
+	if (retval < 0) {
+		LOGE("Fail to get boot info at mode 0x%x\n",
+			tcm->tcm_dev->dev_mode);
+		return;
+	}
+
+	syna_tcm_print_boot_info(&boot_info);
+
+	if (boot_info.status != BOOT_STATUS_BAD_APP_FIRMWARE)
+		return;
+
+	LOGE("boot_info status:%x, do reflash\n", boot_info.status);
+
+	firmware_flashing = ATOMIC_GET(tcm->tcm_dev->firmware_flashing);
+	LOGE("firmware_flashing: %d\n", firmware_flashing);
+	if (firmware_flashing)
+		return;
+
+	LOGE("Start reflash fw\n");
+
+	if (hw_if->ops_enable_irq) {
+		LOGE("force enable irq\n");
+		hw_if->ops_enable_irq(hw_if, true);
+	}
+
+	syna_dev_reflash_startup(tcm, true);
+
+#ifdef POWER_ALIVE_AT_SUSPEND
+	if (!inSuspendMode)
+		return;
+
+	LOGE("restore suspend mode status\n");
+
+	syna_dev_free_input_events(tcm);
+
+	retval = syna_dev_enter_lowpwr_sensing(tcm);
+	if (retval < 0) {
+		LOGE("Fail to enter suspended power mode\n");
+		return;
+	}
+
+	if (xiaomi_get_gesture_type(TOUCH_ID))
+		tcm->pwr_state = LOW_PWR;
+	else
+		tcm->pwr_state = PWR_OFF;
+	tcm->fod_finger = false;
+
+	/* once lpwg is enabled, irq should be alive */
+	if (!xiaomi_get_gesture_type(TOUCH_ID) && hw_if->ops_enable_irq) {
+		hw_if->ops_enable_irq(hw_if, false);
+		if (tcm->irq_wake) {
+			disable_irq_wake(hw_if->bdata_attn.irq_id);
+			tcm->irq_wake = false;
+		}
+	}
+#endif
+}
+
+/**
+ * syna_dev_helper_work()
+ *
+ * According to the given task, perform the delayed work
+ *
+ * @param
+ *    [ in] work: data for work used
+ *
+ * @return
+ *    on success, 0; otherwise, negative value on error.
+ */
+static void syna_dev_helper_work(struct work_struct *work)
+{
+	unsigned char task;
+	struct syna_tcm_helper *helper =
+			container_of(work, struct syna_tcm_helper, work);
+	struct syna_tcm *tcm =
+			container_of(helper, struct syna_tcm, helper);
+
+	task = ATOMIC_GET(helper->task);
+
+	switch (task) {
+	case HELP_RESET_DETECTED:
+		syna_dev_recover_from_reset(tcm);
+		break;
+	default:
+		break;
+	}
+
+	ATOMIC_SET(helper->task, HELP_NONE);
+}
+#endif
 
 #if defined(ENABLE_DISP_NOTIFIER)
 /**

@@ -266,11 +266,16 @@
 
 /**
  * @brief ENABLE_HELPER
- *        Open if willing to do additional handling upon helper workqueue
+ *        Open if willing to do additional handling upon helper workqueue,
+ *        which updates the firmware once an unexpected reset leaves the
+ *        device in bootloader due to a bad application firmware.
  *
- *        Set "disable" in default
+ *        This property is available only when STARTUP_REFLASH
+ *        feature is enabled.
  */
-/* #define ENABLE_HELPER */
+#if defined(STARTUP_REFLASH)
+#define ENABLE_HELPER
+#endif
 #define TOUCH_ID	(0)
 
 /**
