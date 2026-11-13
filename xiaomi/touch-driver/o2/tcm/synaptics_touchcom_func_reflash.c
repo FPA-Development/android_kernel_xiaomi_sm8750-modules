@@ -1362,18 +1362,15 @@ int syna_tcm_read_flash_area(struct tcm_dev *tcm_dev,
 
 	LOGI("%s read\n", AREA_ID_STR(area));
 
-	retval = 0;
-
 exit:
-	retval = syna_tcm_switch_fw_mode(tcm_dev,
+	if (syna_tcm_switch_fw_mode(tcm_dev,
 			MODE_APPLICATION_FIRMWARE,
-			FW_MODE_SWITCH_DELAY_MS);
-	if (retval < 0)
-		LOGE("Fail to go back to application firmware\n");
+			FW_MODE_SWITCH_DELAY_MS) < 0)
+		LOGE("Fatal: fail to go back to application firmware!\n");
 
 	syna_tcm_buf_release(&reflash_data.out);
 
-	return retval;
+	return (retval < 0) ? retval : 0;
 }
 
 /**
