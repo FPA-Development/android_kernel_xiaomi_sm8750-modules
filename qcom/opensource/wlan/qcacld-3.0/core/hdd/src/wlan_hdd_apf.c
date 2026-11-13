@@ -28,6 +28,9 @@
 #include "qca_vendor.h"
 #include "wlan_osif_request_manager.h"
 
+#define HDD_APF_VERSION_V4	4
+#define HDD_APF_VERSION_V6	6000
+
 /*
  * define short names for the global vendor params
  * used by __wlan_hdd_cfg80211_apf_offload()
@@ -116,6 +119,7 @@ hdd_post_get_apf_capabilities_rsp(struct hdd_context *hdd_ctx,
 {
 	struct sk_buff *skb;
 	uint32_t nl_buf_len;
+	uint32_t apf_version;
 
 	hdd_enter();
 
@@ -135,9 +139,20 @@ hdd_post_get_apf_capabilities_rsp(struct hdd_context *hdd_ctx,
 		  apf_get_offload->apf_version,
 		  apf_get_offload->max_bytes_for_apf_inst);
 
+	/*
+	 * Firmware versions above APFv6 are not known to the framework,
+	 * advertise APFv4 for them instead.
+	 */
+	apf_version = apf_get_offload->apf_version;
+	if (apf_version > HDD_APF_VERSION_V6) {
+		hdd_debug("Report APF version %u as %u", apf_version,
+			  HDD_APF_VERSION_V4);
+		apf_version = HDD_APF_VERSION_V4;
+	}
+
 	if (nla_put_u32(skb, APF_PACKET_SIZE,
 			apf_get_offload->max_bytes_for_apf_inst) ||
-	    nla_put_u32(skb, APF_VERSION, apf_get_offload->apf_version)) {
+	    nla_put_u32(skb, APF_VERSION, apf_version)) {
 		hdd_err("nla put failure");
 		goto nla_put_failure;
 	}

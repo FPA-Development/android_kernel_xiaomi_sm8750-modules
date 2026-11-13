@@ -25,7 +25,8 @@
 #include "wlan_pmo_apf.h"
 #include "wlan_pmo_main.h"
 
-#define PMO_APF_SIZE_AUTO	0
+/* Ask the firmware for 2 KiB of APF memory, as required by Android */
+#define PMO_APF_SIZE_AUTO	2048
 #define PMO_APF_SIZE_DISABLE	0xffffffff
 
 uint32_t pmo_get_apf_instruction_size(struct wlan_objmgr_psoc *psoc)
