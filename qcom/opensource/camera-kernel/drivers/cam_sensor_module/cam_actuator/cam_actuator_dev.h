@@ -27,6 +27,7 @@
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_context.h"
+#include "cam_parklens_thread.h" //xiaomi add
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
@@ -49,6 +50,7 @@ enum cam_actuator_state {
 	CAM_ACTUATOR_ACQUIRE,
 	CAM_ACTUATOR_CONFIG,
 	CAM_ACTUATOR_START,
+	CAM_ACTUATOR_PARKLENS, //xiaomi add
 };
 
 /**
@@ -103,6 +105,7 @@ struct actuator_intf_params {
  * @last_flush_req: Last request to flush
  * @read_buf_list         : Actuator register read cmd buffer handle list
  * @read_buf_lock         : Actuator register read cmd buffer mutex
+ * @cci_debug: Sensor debugfs info and entry
  */
 struct cam_actuator_ctrl_t {
 	char device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
@@ -124,6 +127,10 @@ struct cam_actuator_ctrl_t {
 	uint32_t last_flush_req;
 	struct list_head read_buf_list;
 	struct mutex read_buf_lock;
+	/* xiaomi add for cci debug start */
+	void *cci_debug;
+	struct cam_actuator_parklens_ctrl_t parklens_ctrl;
+	/* xiaomi add for cci debug end */
 };
 
 /**

@@ -25,6 +25,9 @@
 #include <cam_sensor_io.h>
 #include "cam_debug_util.h"
 #include "cam_context.h"
+/* xiaomi add for cci debug start */
+#include "cam_cci_debug_util.h"
+/* xiaomi add for cci debug end */
 
 #define NUM_MASTERS 2
 #define NUM_QUEUES 2
@@ -122,6 +125,7 @@ struct cam_sensor_dev_res_info {
  * @hw_no_ops: To determine whether HW operations need to be disabled
  * @read_buf_list: Sensor register read cmd buffer handle list
  * @read_buf_lock: Sensor register read cmd buffer mutex
+ * @cci_debug: Sensor debugfs info and entry
  */
 struct cam_sensor_ctrl_t {
 	char                           device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
@@ -165,6 +169,11 @@ struct cam_sensor_ctrl_t {
 	bool                           hw_no_ops;
 	struct list_head               read_buf_list;
 	struct mutex                   read_buf_lock;
+
+	/* xiaomi add for cci debug start */
+	void                          *cci_debug;
+	/* xiaomi add for cci debug end */
+
 };
 
 /**

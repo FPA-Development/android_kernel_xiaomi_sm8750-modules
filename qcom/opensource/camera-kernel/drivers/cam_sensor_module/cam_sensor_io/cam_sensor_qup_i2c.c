@@ -132,7 +132,9 @@ int32_t cam_qup_i2c_read(struct i2c_client *client,
 
 	rc = cam_qup_i2c_rxdata(client, buf, addr_type, data_type);
 	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR_IO, "failed rc: %d", rc);
+		CAM_ERR(CAM_SENSOR_IO,
+			"failed read! saddr:0x%x reg addr:0x%x size:%d rc: %d",
+			client->addr>>1, addr, data_type, rc);
 		goto read_fail;
 	}
 
@@ -196,7 +198,9 @@ int32_t cam_qup_i2c_read_seq(struct i2c_client *client,
 
 	rc = cam_qup_i2c_rxdata(client, buf, addr_type, num_byte);
 	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR_IO, "failed rc: %d", rc);
+		CAM_ERR(CAM_SENSOR_IO,
+			"failed read! saddr:0x%x reg addr:0x%x num_byte:%d rc: %d",
+			client->addr>>1, addr, num_byte, rc);
 		goto read_seq_fail;
 	}
 
@@ -326,7 +330,8 @@ static inline int32_t cam_qup_i2c_write_optimized(struct camera_io_master *clien
 		}
 
 		do {
-			CAM_DBG(CAM_SENSOR_IO, "reg addr: 0x%x Data: 0x%x",
+			CAM_DBG(CAM_SENSOR_IO, "[saddr 0x%x] reg addr: 0x%x Data: 0x%x",
+				client->qup_client->i2c_client->addr >> 1,
 				reg_setting->reg_addr, reg_setting->reg_data);
 			if (data_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
 				buf[offset] = reg_setting->reg_data;
@@ -401,6 +406,9 @@ int32_t cam_qup_i2c_write_table(struct camera_io_master *client,
 	struct i2c_msg *msgs = NULL;
 	unsigned char *buf = NULL;
 	int i2c_msg_size = 0;
+	// xiaomi add begin
+	int i= 0;
+	// xiaomi add end
 
 	if (!client || !write_setting || !client->qup_client)
 		return rc;
@@ -444,6 +452,18 @@ int32_t cam_qup_i2c_write_table(struct camera_io_master *client,
 	else {
 		CAM_ERR(CAM_SENSOR_IO, "i2c transfer failed, i2c_msg_size:%d rc:%d",
 			i2c_msg_size, rc);
+		// xiaomi add begin
+		CAM_DEBUG_HW_TRIGGER(false, CAM_SENSOR, "qup rc: %d", rc);
+
+		// dump error setting list
+		CAM_ERR(CAM_SENSOR, "i2c(saddr:0x%x) transfer failed list:",
+			client->qup_client->i2c_client->addr>>1);
+		for (i=0; (i<write_setting->size && i<10);i++){
+			CAM_ERR(CAM_SENSOR, "index:%d reg addr:0x%x data:0x%x",
+				i, write_setting->reg_setting[i].reg_addr,
+				write_setting->reg_setting[i].reg_data);
+		}
+		// xiaomi add end
 		rc = -EIO;
 	}
 

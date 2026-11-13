@@ -101,6 +101,7 @@ camera-y := \
 	drivers/cam_utils/cam_soc_util.o \
 	drivers/cam_utils/cam_packet_util.o \
 	drivers/cam_utils/cam_debug_util.o \
+	drivers/cam_utils/cam_dump_util.o \
 	drivers/cam_utils/cam_trace.o \
 	drivers/cam_utils/cam_common_util.o \
 	drivers/cam_utils/cam_compat.o \
@@ -235,6 +236,7 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_actuator/cam_actuator_dev.o \
 	drivers/cam_sensor_module/cam_actuator/cam_actuator_core.o \
 	drivers/cam_sensor_module/cam_actuator/cam_actuator_soc.o \
+	drivers/cam_sensor_module/cam_cci/cam_cci_debug_util.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_dev.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_core.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_soc.o \
@@ -255,6 +257,7 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_ois/cam_ois_dev.o \
 	drivers/cam_sensor_module/cam_ois/cam_ois_core.o \
 	drivers/cam_sensor_module/cam_ois/cam_ois_soc.o \
+	drivers/cam_sensor_module/cam_ois/sem1217s.o \
 	drivers/cam_sensor_module/cam_sensor/cam_sensor_dev.o \
 	drivers/cam_sensor_module/cam_sensor/cam_sensor_core.o \
 	drivers/cam_sensor_module/cam_sensor/cam_sensor_soc.o \
@@ -264,6 +267,7 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_sensor_io/cam_sensor_qup_i3c.o \
 	drivers/cam_sensor_module/cam_sensor_io/cam_sensor_spi.o \
 	drivers/cam_sensor_module/cam_sensor_utils/cam_sensor_util.o \
+	drivers/cam_sensor_module/cam_sensor_utils/cam_parklens_thread.o \
 	drivers/cam_sensor_module/cam_res_mgr/cam_res_mgr.o \
 	drivers/cam_sensor_module/cam_flash/cam_flash_dev.o \
 	drivers/cam_sensor_module/cam_flash/cam_flash_core.o \

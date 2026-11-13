@@ -12,6 +12,9 @@
 #include "camera_main.h"
 #include "cam_compat.h"
 #include "cam_mem_mgr_api.h"
+/* xiaomi add for cci debug start */
+#include "cam_cci_debug_util.h"
+/* xiaomi add for cci debug end */
 
 static struct cam_i3c_actuator_data {
 	struct cam_actuator_ctrl_t                  *a_ctrl;
@@ -67,7 +70,7 @@ static long cam_actuator_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_actuator_driver_cmd(a_ctrl, arg);
 		if (rc) {
 			if (rc == -EBADR)
-				CAM_INFO(CAM_ACTUATOR,
+				CAM_DBG(CAM_ACTUATOR,
 					"Failed for driver_cmd: %d, it has been flushed",
 					rc);
 			else
@@ -276,6 +279,17 @@ static int cam_actuator_i2c_component_bind(struct device *dev,
 	CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts_start, ts_end, microsec);
 	cam_record_bind_latency(drv_name, microsec);
 	of_node_put(np);
+
+	/* xiaomi add begin */
+	INIT_LIST_HEAD(&(a_ctrl->i2c_data.parklens_settings.list_head)); //xiaomi add
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_opcode),
+		ENTER_PARKLENS_WITH_POWERDOWN);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.exit_result),
+		PARKLENS_ENTER);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_state),
+		PARKLENS_INVALID);
+	a_ctrl->parklens_ctrl.parklens_thread = NULL;
+	/* xiaomi add end */
 
 	return rc;
 
@@ -488,11 +502,33 @@ static int cam_actuator_platform_component_bind(struct device *dev,
 	CAM_DBG(CAM_ACTUATOR, "Component bound successfully %d",
 		a_ctrl->soc_info.index);
 
+	/* xiaomi add begin */
+	INIT_LIST_HEAD(&(a_ctrl->i2c_data.parklens_settings.list_head));
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_opcode),
+		ENTER_PARKLENS_WITH_POWERDOWN);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.exit_result),
+		PARKLENS_ENTER);
+	parklens_atomic_set(&(a_ctrl->parklens_ctrl.parklens_state),
+		PARKLENS_INVALID);
+	a_ctrl->parklens_ctrl.parklens_thread = NULL;
+	/* xiaomi add end */
+
 	g_i3c_actuator_data[a_ctrl->soc_info.index].a_ctrl = a_ctrl;
 	init_completion(&g_i3c_actuator_data[a_ctrl->soc_info.index].probe_complete);
 	CAM_GET_TIMESTAMP(ts_end);
 	CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts_start, ts_end, microsec);
 	cam_record_bind_latency(pdev->name, microsec);
+
+	/* xiaomi add for cci debug start */
+	rc = cam_cci_dev_create_debugfs_entry(a_ctrl->device_name,
+		a_ctrl->soc_info.index, CAM_ACTUATOR_NAME,
+		&a_ctrl->io_master_info, a_ctrl->cci_i2c_master,
+		&a_ctrl->cci_debug);
+	if (rc) {
+		CAM_WARN(CAM_ACTUATOR, "debugfs creation failed");
+		rc = 0;
+	}
+	/* xiaomi add for cci debug end */
 
 	return rc;
 
@@ -528,6 +564,9 @@ static void cam_actuator_platform_component_unbind(struct device *dev,
 	cam_actuator_shutdown(a_ctrl);
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+	/* xiaomi add for cci debug start */
+	cam_cci_dev_remove_debugfs_entry((void *)a_ctrl->cci_debug);
+	/* xiaomi add for cci debug end */
 
 	CAM_MEM_FREE(a_ctrl->io_master_info.cci_client);
 	a_ctrl->io_master_info.cci_client = NULL;

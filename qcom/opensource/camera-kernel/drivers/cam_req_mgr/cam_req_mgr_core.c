@@ -21,6 +21,11 @@
 #include "cam_mem_mgr.h"
 #include "cam_mem_mgr_api.h"
 #include "cam_cpas_api.h"
+#include "cam_dump_util.h"
+
+static bool debug_tool_initialized;
+static uint debug_tool = 1;
+module_param(debug_tool, uint, 0644);
 
 static struct cam_req_mgr_core_device *g_crm_core_dev;
 static struct cam_req_mgr_core_link g_links[MAXIMUM_LINKS_CAPACITY];
@@ -4959,6 +4964,16 @@ int cam_req_mgr_create_session(
 	mutex_unlock(&cam_session->lock);
 end:
 	mutex_unlock(&g_crm_core_dev->crm_lock);
+
+	/* Allocate or free the key message record buffers on demand */
+	if (debug_tool && !debug_tool_initialized) {
+		cam_init_message_buffer();
+		debug_tool_initialized = true;
+	} else if (!debug_tool && debug_tool_initialized) {
+		cam_deinit_message_buffer();
+		debug_tool_initialized = false;
+	}
+
 	return rc;
 }
 
@@ -6329,6 +6344,7 @@ int cam_req_mgr_core_device_deinit(void)
 
 	CAM_DBG(CAM_CRM, "g_crm_core_dev %pK", g_crm_core_dev);
 	cam_req_mgr_debug_unregister();
+	cam_deinit_message_buffer();
 	mutex_destroy(&g_crm_core_dev->crm_lock);
 	CAM_MEM_FREE(g_crm_core_dev);
 	g_crm_core_dev = NULL;

@@ -1717,7 +1717,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 
 	if (cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		if (IS_CSF25(tbl.csf_version.arch_ver, tbl.csf_version.max_ver)) {
-			heap = tbl.system_heap;
+			heap = tbl.secure_display_heap;
 			len = cam_align_dma_buf_size(len);
 		} else {
 			heap = tbl.secure_display_heap;

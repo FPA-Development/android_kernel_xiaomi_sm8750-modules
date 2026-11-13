@@ -1281,7 +1281,7 @@ static inline void cam_cpas_util_validate_rt_camnoc_clk_rate(struct cam_cpas *cp
 
 	if ((rt_hlos_clk_rate + total_hw_client_rate) >
 		(soc_info->clk_rate[soc_info->highest_clk_level][soc_info->src_clk_idx]))
-		CAM_WARN(CAM_CPAS,
+		CAM_DBG(CAM_CPAS,
 			"Requested clk rate[SW HW Total]: [%lld %lld %lld] exceeds max supported value: %d",
 			rt_hlos_clk_rate, total_hw_client_rate, (rt_hlos_clk_rate +
 			total_hw_client_rate),
