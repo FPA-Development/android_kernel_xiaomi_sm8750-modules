@@ -233,6 +233,19 @@ static void dp_panel_calc_tu_parameters(struct dp_panel *dp_panel,
 	tu_table->upper_boundary_count      = out.upper_boundary_count;
 	tu_table->lower_boundary_count      = out.lower_boundary_count;
 	tu_table->tu_size_minus1            = out.tu_size_minus1;
+
+#ifdef MI_DISPLAY_MODIFY
+	if ((bw_code == DP_LINK_BW_5_4) && (in.hactive == 3840) &&
+			(in.nlanes == 1) && in.dsc_en) {
+		tu_table->valid_boundary_link       = 32;
+		tu_table->delay_start_link          = 7;
+		tu_table->boundary_moderation_en    = 0;
+		tu_table->valid_lower_boundary_link = 0;
+		tu_table->upper_boundary_count      = 0;
+		tu_table->lower_boundary_count      = 0;
+		tu_table->tu_size_minus1            = 31;
+	}
+#endif
 }
 
 static void dp_panel_config_tr_unit(struct dp_panel *dp_panel)
@@ -776,9 +789,15 @@ static int dp_panel_read_dpcd(struct dp_panel *dp_panel, bool multi_func)
 	if (drm_dp_enhanced_frame_cap(dpcd))
 		link_info->capabilities |= DP_LINK_CAP_ENHANCED_FRAMING;
 
+	/*
+	 * Sink CRC collection never completes for DP sinks, which leaves the
+	 * frame CRC list empty, so keep CRC support disabled.
+	 */
+#ifndef MI_DISPLAY_MODIFY
 	rlen = drm_dp_dpcd_read(panel->aux->drm_aux, DP_TEST_SINK_MISC, &temp, 1);
 	if ((rlen == 1) && (temp & DP_TEST_CRC_SUPPORTED))
 		link_info->capabilities |= DP_LINK_CAP_CRC;
+#endif
 
 	dfp_count = dpcd[DP_DOWN_STREAM_PORT_COUNT] &
 						DP_DOWN_STREAM_PORT_COUNT;
@@ -840,7 +859,11 @@ static int dp_panel_read_edid(struct dp_panel *dp_panel,
 		(void **)&dp_panel->edid_ctrl);
 	if (!dp_panel->edid_ctrl->edid) {
 		DP_ERR("EDID read failed\n");
+#ifdef MI_DISPLAY_MODIFY
+		ret = -ENOLINK;
+#else
 		ret = -EINVAL;
+#endif
 		goto end;
 	}
 end:
@@ -2073,8 +2096,12 @@ static int dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 			comp_info->enabled = false;
 			return -EAGAIN;
 		}
-
+#ifdef MI_DISPLAY_MODIFY
+		rc = sde_dsc_populate_dsc_config(&comp_info->dsc_info.config, 0, 0);
+#else
 		rc = sde_dsc_populate_dsc_config(&comp_info->dsc_info.config, 0);
+#endif
+
 		if (rc) {
 			DP_DEBUG("failed populating dsc params \n");
 			dp_mode->capabilities &= ~DP_PANEL_CAPS_DSC;

@@ -23,6 +23,9 @@
 #define DATA_BUS_SW_CLIENT_0_NAME "qcom,sde-data-bus-sw-0"
 #define XO_VOTE_EXIT_FREQ_THRESHOLD 1000
 
+#define SDE_CRM_BASE	0xAF21000
+#define SDE_CRM_LEN 	0xA000
+
 static struct sde_cesta *cesta_list[MAX_CESTA_COUNT] = {NULL, };
 
 bool sde_cesta_is_enabled(u32 cesta_index)
@@ -1074,6 +1077,9 @@ int sde_cesta_bind(struct device *dev, struct device *master, void *data)
 			cesta->scc_io[i].len, msm_get_phys_addr(pdev, blk_name), SDE_DBG_RSC);
 	}
 
+	sde_dbg_reg_register_base("sde_crm", cesta->sde_crm_io.base,
+			cesta->sde_crm_io.len, SDE_CRM_BASE, SDE_DBG_RSC);
+
 	msm_register_vm_event(master, dev, &vm_event_ops, (void *)cesta);
 
 	return 0;
@@ -1187,6 +1193,8 @@ static int sde_cesta_probe(struct platform_device *pdev)
 		SDE_ERROR_CESTA("wrapper io data mapping failed, ret:%d\n", ret);
 		goto fail;
 	}
+	cesta->sde_crm_io.base = ioremap(SDE_CRM_BASE, SDE_CRM_LEN);
+	cesta->sde_crm_io.len = SDE_CRM_LEN;
 
 	ret = msm_dss_ioremap_byname(pdev, &cesta->disp_cc_io, "disp_cc");
 	if (ret) {

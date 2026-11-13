@@ -56,7 +56,7 @@
 #define IDLE_POWERCOLLAPSE_IN_EARLY_WAKEUP (200 - 16/2)
 
 /* below this fps limit, timeouts are adjusted based on fps */
-#define DEFAULT_TIMEOUT_FPS_THRESHOLD            24
+#define DEFAULT_TIMEOUT_FPS_THRESHOLD            10
 
 #define SDE_ENC_IRQ_REGISTERED(phys_enc, idx) \
 		((!(phys_enc) || ((idx) < 0) || ((idx) >= INTR_IDX_MAX)) ? \

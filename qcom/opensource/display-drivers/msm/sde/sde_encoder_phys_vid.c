@@ -13,6 +13,9 @@
 #include "sde_trace.h"
 #include "msm_drv.h"
 #include <drm/drm_fixed.h>
+#ifdef MI_DISPLAY_MODIFY
+#include "mi_sde_encoder.h"
+#endif
 
 #define SDE_DEBUG_VIDENC(e, fmt, ...) SDE_DEBUG("enc%d intf%d " fmt, \
 		(e) && (e)->base.parent ? \
@@ -623,9 +626,9 @@ static void sde_encoder_phys_vid_setup_timing_engine(
 		struct sde_encoder_phys *phys_enc, bool from_idle)
 {
 	struct sde_encoder_phys_vid *vid_enc;
-	struct msm_display_info *info;
+	struct sde_encoder_virt *sde_enc = to_sde_encoder_virt(phys_enc->parent);
+	struct msm_display_info *info = &sde_enc->disp_info;
 	struct drm_display_mode mode;
-	struct sde_encoder_virt *sde_enc;
 	struct intf_timing_params timing_params = { 0 };
 	const struct sde_format *fmt = NULL;
 	u32 fmt_fourcc = DRM_FORMAT_RGB888;
@@ -1278,6 +1281,9 @@ static void sde_encoder_phys_vid_vblank_irq(void *arg, int irq_idx)
 	if (!hw_ctl)
 		return;
 
+#ifdef MI_DISPLAY_MODIFY
+	mi_sde_encoder_save_vsync_info(phys_enc);
+#endif
 	SDE_ATRACE_BEGIN("vblank_irq");
 
 	/*
@@ -1487,6 +1493,10 @@ static void sde_encoder_phys_vid_cont_splash_mode_set(
 	phys_enc->enable_state = SDE_ENC_ENABLED;
 
 	_sde_encoder_phys_vid_setup_irq_hw_idx(phys_enc);
+#ifdef MI_DISPLAY_MODIFY
+	phys_enc->kickoff_timeout_ms =
+		sde_encoder_helper_get_kickoff_timeout_ms(phys_enc->parent);
+#endif
 }
 
 static void sde_encoder_phys_vid_mode_set(
@@ -2052,6 +2062,10 @@ static int _sde_encoder_phys_vid_wait_for_vblank(
 	}
 
 	hw_ctl = phys_enc->hw_ctl;
+#ifdef MI_DISPLAY_MODIFY
+	if (!hw_ctl)
+		return -EINVAL;
+#endif
 	conn = phys_enc->connector;
 
 	wait_info.wq = &phys_enc->pending_kickoff_wq;

@@ -208,6 +208,7 @@ struct sde_cesta_hw_ops {
  * @rscc_io: sde rscc io data mapping
  * @wrapper_io: wrapper io data mapping
  * @disp_cc_io: dispcc io data mapping
+ * @sde_crm_io: sde crm io data mapping, for register dumps
  * @client_list: link list maintaing all the clients
  * @hw_ops: sde ceseta hardware operations
  * @sw_fs_enabled: track MDSS GDSC sw vote during probe
@@ -235,6 +236,7 @@ struct sde_cesta {
 	struct dss_io_data rscc_io;
 	struct dss_io_data wrapper_io;
 	struct dss_io_data disp_cc_io;
+	struct dss_io_data sde_crm_io;
 
 	struct list_head client_list;
 	struct mutex client_lock;

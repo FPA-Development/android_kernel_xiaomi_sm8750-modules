@@ -184,6 +184,22 @@ module_entry(
             "msm/msm_smmu.c",
             "msm/msm_prop.c",
          ],
+         "MI_DISPLAY_MODIFY" : [
+            "msm/mi_disp/mi_disp_core.c",
+            "msm/mi_disp/mi_disp_feature.c",
+            "msm/mi_disp/mi_disp_sysfs.c",
+            "msm/mi_disp/mi_disp_file.c",
+            "msm/mi_disp/mi_disp_procfs.c",
+            "msm/mi_disp/mi_disp_debugfs.c",
+            "msm/mi_disp/mi_disp_log.c",
+            "msm/mi_disp/mi_disp_flatmode.c",
+            "msm/mi_disp/mi_disp_parser.c",
+            "msm/mi_disp/mi_dsi_display.c",
+            "msm/mi_disp/mi_dsi_panel.c",
+            "msm/mi_disp/mi_sde_encoder.c",
+            "msm/mi_disp/mi_sde_connector.c",
+            "msm/mi_disp/mi_disp_print.c",
+         ],
          "CONFIG_MSM_SDE_ROTATOR":{
             True: [
                "rotator/sde_rotator_dev.c",

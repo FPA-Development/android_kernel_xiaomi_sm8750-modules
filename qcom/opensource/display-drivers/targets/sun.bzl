@@ -32,6 +32,7 @@ def define_sun():
                     "CONFIG_MSM_EXT_DISPLAY",
                     "CONFIG_DRM_SDE_CESTA",
                     "CONFIG_SMMU_PROXY",
-                    "CONFIG_DRM_MSM_HDMI"
+                    "CONFIG_DRM_MSM_HDMI",
+                    "MI_DISPLAY_MODIFY",
                 ],
             )

@@ -37,6 +37,7 @@
 #include <linux/msm_ion.h>
 #endif
 
+
 struct msm_gem_prime_vmid_flags {
 	bool is_tvm;
 	bool is_cp_pixel;

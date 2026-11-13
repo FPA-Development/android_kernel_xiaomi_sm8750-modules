@@ -123,6 +123,8 @@
 #define HW_FENCE_INPUT_FENCE_ID_MASK_ALL 0xFFFFFFFF
 #define HW_FENCE_INPUT_FENCE_ID_MASK_SIGNAL 0xFFFF
 
+#define DEMURA_SW_FUSE_OFFSET 0x7C
+
 static int ppb_offset_map[PINGPONG_MAX] = {1, 0, 3, 2, 5, 4, 7, 7, 6, 6, -1, -1};
 
 static void sde_hw_setup_split_pipe(struct sde_hw_mdp *mdp,
