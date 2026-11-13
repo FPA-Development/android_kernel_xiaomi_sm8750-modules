@@ -4681,6 +4681,17 @@ static QDF_STATUS sap_get_freq_list(struct sap_context *sap_ctx,
 					sap_ctx->acs_cfg->freq_list,
 					sap_ctx->acs_cfg->ch_list_count))
 			continue;
+
+		/*
+		 * Only use a DFS or indoor channel when the only active
+		 * connection already operates on it, if so configured.
+		 */
+		if ((wlan_reg_is_freq_indoor(mac_ctx->pdev, chan_freq) ||
+		     wlan_reg_is_dfs_for_freq(mac_ctx->pdev, chan_freq)) &&
+		    !policy_mgr_is_sap_dfs_indoor_freq_allowed(mac_ctx->psoc,
+							       chan_freq))
+			continue;
+
 		/* Dont scan DFS channels in case of MCC disallowed
 		 * As it can result in SAP starting on DFS channel
 		 * resulting  MCC on DFS channel

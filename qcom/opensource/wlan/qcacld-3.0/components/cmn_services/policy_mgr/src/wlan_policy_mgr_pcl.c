@@ -731,10 +731,71 @@ static QDF_STATUS policy_mgr_modify_pcl_based_on_enabled_channels(
 			pm_ctx->pdev, pcl_list_org[i],
 			REG_CURRENT_PWR_MODE)) ||
 		    (allow_go_scc_on_dfs_chn &&
-		     wlan_reg_is_dfs_for_freq(pm_ctx->pdev, pcl_list_org[i]))) {
+		     wlan_reg_is_dfs_for_freq(pm_ctx->pdev, pcl_list_org[i])) ||
+		    (pm_ctx->cfg.sap_only_allow_sta_dfs_indoor_chan &&
+		     wlan_reg_is_dfs_for_freq(pm_ctx->pdev, pcl_list_org[i]) &&
+		     policy_mgr_is_sap_dfs_indoor_freq_allowed(psoc,
+							       pcl_list_org[i]))) {
 			pcl_list_org[pcl_len] = pcl_list_org[i];
 			weight_list_org[pcl_len++] = weight_list_org[i];
 		}
+	}
+	*pcl_len_org = pcl_len;
+
+	return QDF_STATUS_SUCCESS;
+}
+
+/**
+ * policy_mgr_modify_go_pcl_based_on_indoor() - Remove indoor channels from
+ * the P2P GO PCL
+ * @psoc: pointer to soc
+ * @pcl_list_org: channel list to filter
+ * @weight_list_org: weight of each channel in @pcl_list_org
+ * @pcl_len_org: length of @pcl_list_org
+ *
+ * With mi_sap_only_allow_sta_dfs_indoor_chan set, a P2P GO may only use an
+ * indoor channel when indoor channels are supported and the only active
+ * connection already operates on it.
+ *
+ * Return: QDF_STATUS
+ */
+static QDF_STATUS
+policy_mgr_modify_go_pcl_based_on_indoor(struct wlan_objmgr_psoc *psoc,
+					 uint32_t *pcl_list_org,
+					 uint8_t *weight_list_org,
+					 uint32_t *pcl_len_org)
+{
+	struct policy_mgr_psoc_priv_obj *pm_ctx;
+	bool include_indoor_channel = false;
+	uint32_t i, pcl_len = 0;
+	QDF_STATUS status;
+
+	pm_ctx = policy_mgr_get_context(psoc);
+	if (!pm_ctx) {
+		policy_mgr_err("context is NULL");
+		return QDF_STATUS_E_FAILURE;
+	}
+
+	if (!pm_ctx->cfg.sap_only_allow_sta_dfs_indoor_chan)
+		return QDF_STATUS_SUCCESS;
+
+	status = ucfg_mlme_get_indoor_channel_support(psoc,
+						      &include_indoor_channel);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		policy_mgr_err("failed to get indoor channel skip info");
+		return status;
+	}
+
+	for (i = 0; i < *pcl_len_org; i++) {
+		if (wlan_reg_is_freq_indoor_in_secondary_list(pm_ctx->pdev,
+							      pcl_list_org[i]) &&
+		    (!include_indoor_channel ||
+		     !policy_mgr_is_sap_dfs_indoor_freq_allowed(psoc,
+								pcl_list_org[i])))
+			continue;
+
+		pcl_list_org[pcl_len] = pcl_list_org[i];
+		weight_list_org[pcl_len++] = weight_list_org[i];
 	}
 	*pcl_len_org = pcl_len;
 
@@ -1629,6 +1690,17 @@ static QDF_STATUS policy_mgr_pcl_modification_for_p2p_go(
 	}
 	if (pcl_len != *len) {
 		dfs_modified_pcl = true;
+		pcl_len = *len;
+	}
+
+	status = policy_mgr_modify_go_pcl_based_on_indoor(
+			psoc, pcl_channels, pcl_weight, len);
+	if (QDF_IS_STATUS_ERROR(status)) {
+		policy_mgr_err("failed to get indoor modified pcl for GO");
+		return status;
+	}
+	if (pcl_len != *len) {
+		enabled_modified_pcl = true;
 		pcl_len = *len;
 	}
 

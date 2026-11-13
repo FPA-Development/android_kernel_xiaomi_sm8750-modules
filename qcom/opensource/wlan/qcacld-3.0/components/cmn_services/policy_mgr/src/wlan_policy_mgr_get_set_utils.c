@@ -12800,6 +12800,35 @@ bool policy_mgr_is_sta_sap_scc_allowed_on_dfs_chan(
 	return status;
 }
 
+bool policy_mgr_is_sap_dfs_indoor_freq_allowed(struct wlan_objmgr_psoc *psoc,
+					       qdf_freq_t freq)
+{
+	struct policy_mgr_psoc_priv_obj *pm_ctx;
+	qdf_freq_t conn_freq = 0;
+	uint32_t conn_index, count = 0;
+
+	pm_ctx = policy_mgr_get_context(psoc);
+	if (!pm_ctx) {
+		policy_mgr_err("Invalid Context");
+		return false;
+	}
+
+	if (!pm_ctx->cfg.sap_only_allow_sta_dfs_indoor_chan)
+		return true;
+
+	qdf_mutex_acquire(&pm_ctx->qdf_conc_list_lock);
+	for (conn_index = 0; conn_index < MAX_NUMBER_OF_CONC_CONNECTIONS;
+	     conn_index++) {
+		if (!pm_conc_connection_list[conn_index].in_use)
+			continue;
+		conn_freq = pm_conc_connection_list[conn_index].freq;
+		count++;
+	}
+	qdf_mutex_release(&pm_ctx->qdf_conc_list_lock);
+
+	return count == 1 && conn_freq == freq;
+}
+
 bool policy_mgr_is_multi_sap_allowed_on_same_band(
 					struct wlan_objmgr_pdev *pdev,
 					enum policy_mgr_con_mode mode,

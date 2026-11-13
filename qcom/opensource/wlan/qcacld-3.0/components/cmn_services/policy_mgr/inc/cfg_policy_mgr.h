@@ -426,6 +426,30 @@ CFG_INI_UINT("g_sta_sap_scc_on_dfs_chan", 0, 2, 2, CFG_VALUE_OR_DEFAULT, \
 
 /*
  * <ini>
+ * mi_sap_only_allow_sta_dfs_indoor_chan - Only allow SAP/P2P GO on a DFS or
+ * indoor channel when another interface already operates on it
+ * @Min: 0
+ * @Max: 1
+ * @Default: 1
+ *
+ * 0 - No additional restriction for DFS and indoor channels.
+ * 1 - SAP and P2P GO may only use a DFS or indoor channel when the only
+ *     active connection already operates on that channel (SCC).
+ *
+ * Related: gEnableDFSMasterCap, gindoor_channel_support
+ *
+ * Supported Feature: SAP, P2P GO
+ *
+ * Usage: External
+ *
+ * </ini>
+ */
+#define CFG_SAP_ONLY_ALLOW_STA_DFS_INDOOR_CHAN \
+CFG_INI_BOOL("mi_sap_only_allow_sta_dfs_indoor_chan", 1, \
+	     "Only allow SAP/P2P GO on DFS/indoor channels used by a connection")
+
+/*
+ * <ini>
  * sta_sap_scc_on_indoor_chan - Allow STA+SAP SCC on indoor channel
  * when STA is connected on indoor channel.
  * @Min: false
@@ -765,6 +789,7 @@ CFG_INI_BOOL("g_move_sap_go_1st_on_dfs_sta_csa", 0, \
 		CFG(CFG_DUAL_MAC_FEATURE_DISABLE)\
 		CFG(CFG_ENABLE_SBS)\
 		CFG(CFG_STA_SAP_SCC_ON_DFS_CHAN)\
+		CFG(CFG_SAP_ONLY_ALLOW_STA_DFS_INDOOR_CHAN)\
 		CFG(CFG_STA_SAP_SCC_ON_INDOOR_CHAN)\
 		CFG(CFG_FORCE_1X1_FEATURE)\
 		CFG(CFG_ENABLE_SAP_MANDATORY_CHAN_LIST)\

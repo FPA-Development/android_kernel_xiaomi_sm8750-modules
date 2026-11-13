@@ -4535,6 +4535,21 @@ bool policy_mgr_is_sta_sap_scc_allowed_on_dfs_chan(
 		struct wlan_objmgr_psoc *psoc);
 
 /**
+ * policy_mgr_is_sap_dfs_indoor_freq_allowed() - check if a SAP/P2P GO may use
+ * a DFS or indoor frequency
+ * @psoc: pointer to soc
+ * @freq: DFS or indoor frequency to check
+ *
+ * When mi_sap_only_allow_sta_dfs_indoor_chan is set, a SAP or P2P GO may only
+ * use a DFS or indoor channel if the only active connection already operates
+ * on it.
+ *
+ * Return: true if a SAP/P2P GO may start on @freq, false otherwise
+ */
+bool policy_mgr_is_sap_dfs_indoor_freq_allowed(struct wlan_objmgr_psoc *psoc,
+					       qdf_freq_t freq);
+
+/**
  * policy_mgr_is_multi_sap_allowed_on_same_band() - check if multi sap allowed
  * on same band
  * @pdev: id of objmgr pdev
