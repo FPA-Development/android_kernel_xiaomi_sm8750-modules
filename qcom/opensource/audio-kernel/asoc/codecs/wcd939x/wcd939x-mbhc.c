@@ -2063,63 +2063,6 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.zdet_leakage_resistance = wcd939x_mbhc_zdet_leakage_resistance,
 };
 
-static int wcd939x_get_hph_type(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_component *component =
-					snd_soc_kcontrol_component(kcontrol);
-	struct wcd939x_mbhc *wcd939x_mbhc = wcd939x_soc_get_mbhc(component);
-	struct wcd_mbhc *mbhc;
-
-	if (!wcd939x_mbhc) {
-		dev_err_ratelimited(component->dev, "%s: mbhc not initialized!\n", __func__);
-		return -EINVAL;
-	}
-
-	mbhc = &wcd939x_mbhc->wcd_mbhc;
-
-	ucontrol->value.integer.value[0] = (u32) mbhc->hph_type;
-	dev_dbg(component->dev, "%s: hph_type = %u\n", __func__, mbhc->hph_type);
-
-	return 0;
-}
-
-static int wcd939x_hph_impedance_get(struct snd_kcontrol *kcontrol,
-				   struct snd_ctl_elem_value *ucontrol)
-{
-	uint32_t zl, zr;
-	bool hphr;
-	struct soc_mixer_control *mc;
-	struct snd_soc_component *component =
-					snd_soc_kcontrol_component(kcontrol);
-	struct wcd939x_mbhc *wcd939x_mbhc = wcd939x_soc_get_mbhc(component);
-
-	if (!wcd939x_mbhc) {
-		dev_err_ratelimited(component->dev, "%s: mbhc not initialized!\n", __func__);
-		return -EINVAL;
-	}
-
-	mc = (struct soc_mixer_control *)(kcontrol->private_value);
-	hphr = mc->shift;
-	wcd_mbhc_get_impedance(&wcd939x_mbhc->wcd_mbhc, &zl, &zr);
-	dev_dbg(component->dev, "%s: zl=%u(ohms), zr=%u(ohms)\n", __func__, zl, zr);
-	ucontrol->value.integer.value[0] = hphr ? zr : zl;
-
-	return 0;
-}
-
-static const struct snd_kcontrol_new hph_type_detect_controls[] = {
-	SOC_SINGLE_EXT("HPH Type", 0, 0, UINT_MAX, 0,
-		       wcd939x_get_hph_type, NULL),
-};
-
-static const struct snd_kcontrol_new impedance_detect_controls[] = {
-	SOC_SINGLE_EXT("HPHL Impedance", 0, 0, UINT_MAX, 0,
-		       wcd939x_hph_impedance_get, NULL),
-	SOC_SINGLE_EXT("HPHR Impedance", 0, 1, UINT_MAX, 0,
-		       wcd939x_hph_impedance_get, NULL),
-};
-
 /*
  * wcd939x_mbhc_get_impedance: get impedance of headphone
  * left and right channels
@@ -2334,10 +2277,6 @@ int wcd939x_mbhc_init(struct wcd939x_mbhc **mbhc,
 	}
 
 	(*mbhc) = wcd939x_mbhc;
-	snd_soc_add_component_controls(component, impedance_detect_controls,
-				   ARRAY_SIZE(impedance_detect_controls));
-	snd_soc_add_component_controls(component, hph_type_detect_controls,
-				   ARRAY_SIZE(hph_type_detect_controls));
 
 	wcd939x = dev_get_drvdata(component->dev);
 	if (!wcd939x) {
