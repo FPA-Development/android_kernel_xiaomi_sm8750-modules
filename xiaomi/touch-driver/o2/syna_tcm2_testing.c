@@ -1245,55 +1245,6 @@ static struct kobj_attribute kobj_attr_pt03 =
 	__ATTR(pt03, 0444, syna_testing_pt03_show, NULL);
 
 
-static void testing_copy_resp_to_output_PT05(struct tcm_buffer *resp_pt05,struct tcm_buffer *report_rt163)
-{
-	int retval;
-	unsigned int output_size;
-
-	output_size = resp_pt05->data_length + report_rt163->data_length;
-
-	LOGI("output_size:%d,resp_pt05.data_length:%d,report_rt163.data_length:%d\n",output_size, resp_pt05->data_length, report_rt163->data_length);
-
-	LOCK_BUFFER(testing_hcd->output);
-
-	retval = syna_tcm_buf_alloc(&testing_hcd->output,output_size);
-	if (retval < 0) {
-		LOGE("Failed to allocate memory for testing_hcd->output.buf\n");
-		UNLOCK_BUFFER(testing_hcd->output);
-		return;
-	}
-
-	retval = syna_pal_mem_cpy(testing_hcd->output.buf,
-			testing_hcd->output.buf_size,
-			resp_pt05->buf,
-			resp_pt05->buf_size,
-			resp_pt05->data_length);
-	if (retval < 0) {
-		LOGE("Fail to copy PT05 data to output, size: %d\n",
-			resp_pt05->data_length);
-		UNLOCK_BUFFER(testing_hcd->output);
-		return;
-	}
-
-	retval = syna_pal_mem_cpy(testing_hcd->output.buf + resp_pt05->data_length,
-			testing_hcd->output.buf_size - resp_pt05->data_length,
-			report_rt163->buf,
-			report_rt163->buf_size,
-			report_rt163->data_length);
-	if (retval < 0) {
-		LOGE("Fail to copy RT163 data to output, size: %d\n",
-			resp_pt05->data_length);
-		UNLOCK_BUFFER(testing_hcd->output);
-		return;
-	}
-
-	testing_hcd->output.data_length = output_size;
-
-	UNLOCK_BUFFER(testing_hcd->output);
-
-	return;
-}
-
 /**
  * syna_testing_pt05()
  *
@@ -1323,7 +1274,6 @@ static int syna_testing_pt05(struct syna_tcm *tcm)
 	char *pt5_hi_limits;
 	char *pt5_lo_limits;
 	struct tcm_application_info *app_info;
-	struct tcm_buffer report_rt163;
 
 	testing_hcd->result = false;
 
@@ -1407,15 +1357,7 @@ static int syna_testing_pt05(struct syna_tcm *tcm)
 		}
 	}
 
-	retval = syna_tcm_run_production_test(tcm->tcm_dev,
-			TEST_PID84_FREQRAWTEST,
-			&report_rt163);
-	if (retval < 0) {
-		LOGE("Fail to run test %d %d\n",TEST_PID84_FREQRAWTEST,report_rt163.buf_size);
-		testing_copy_resp_to_output();
-	} else {
-		testing_copy_resp_to_output_PT05(&testing_hcd->resp,&report_rt163);
-	}
+	testing_copy_resp_to_output();
 
 	UNLOCK_BUFFER(testing_hcd->resp);
 
@@ -1574,7 +1516,7 @@ static int syna_testing_pt44(struct syna_tcm *tcm, unsigned int casenum)
 	}
 
 	if(frame_size_words == (testing_hcd->resp.data_length / 2 - 1)) {
-		LOGE("The last word need to be removed\n");
+		LOGW("The last word need to be removed\n");
 		testing_hcd->resp.data_length = testing_hcd->resp.data_length - 2;
 	}
 	
