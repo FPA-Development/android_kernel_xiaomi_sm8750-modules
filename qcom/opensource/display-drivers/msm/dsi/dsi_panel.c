@@ -5388,7 +5388,17 @@ exit:
 #ifdef MI_DISPLAY_MODIFY
 	DISP_TIME_INFO("%s panel: DSI_CMD_SET_LP1\n", panel->type);
 
-	mi_dsi_display_wakeup_pending_doze_work(display);
+	/*
+	 * Entering AOD from a dim screen: switch the O3 panel to the low
+	 * doze brightness right away instead of waiting for userspace.
+	 */
+	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == O3_PANEL_PA &&
+			!mi_cfg->fullscreen_aod_status &&
+			panel->bl_config.bl_level > 0 &&
+			panel->bl_config.bl_level < 150)
+		mi_dsi_panel_set_doze_brightness(panel, DOZE_BRIGHTNESS_LBM);
+	else
+		mi_dsi_display_wakeup_pending_doze_work(display);
 #endif
 	return rc;
 }
@@ -5482,12 +5492,15 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 		dsi_pwr_panel_regulator_mode_set(&panel->power_info,
 			"ibb", REGULATOR_MODE_NORMAL);
 #ifdef MI_DISPLAY_MODIFY
+	/* Restore the doze backlight level into the NOLP sequence */
 	switch (mi_get_panel_id(panel->mi_cfg.mi_panel_id)) {
-		case O2_PANEL_PA:
-		case O3_PANEL_PA:
-		default:
-			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_NOLP, false);
-			break;
+	case O2_PANEL_PA:
+	case O3_PANEL_PA:
+		rc = mi_dsi_panel_set_nolp_locked(panel);
+		break;
+	default:
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_NOLP, false);
+		break;
 	}
 #else
 	rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_NOLP, false);
