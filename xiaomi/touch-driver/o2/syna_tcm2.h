@@ -479,6 +479,8 @@ struct syna_tcm {
 	int palm_sensor_enable;
 	int palm_enable_status;
 	bool fod_finger;
+	/* result of the fingerprint authentication, 0 on success */
+	int fingerprint_authstate;
 	int charger_connected;
 	int report_rate_mode;
 	unsigned int gesture_type;

@@ -300,7 +300,7 @@ void syna_touch_fod_down_event(struct syna_tcm *tcm, int fod_x, int fod_y, int f
 	struct input_dev *input_dev = tcm->input_dev;
 
 	if (!tcm->fod_finger)
-		LOGI("FOD DOWN Dfetected\n");
+		LOGI("FOD DOWN Detected\n");
 	update_fod_press_status(1);
 	tcm->fod_finger = true;
 	/*report input event*/
@@ -365,7 +365,16 @@ static void syna_dev_free_input_events(struct syna_tcm *tcm)
 	input_mt_sync(input_dev);
 #endif
 	input_sync(input_dev);
-	update_fod_press_status(0);
+
+	/* keep the fod pressed after a failed fingerprint authentication */
+	if (tcm->fingerprint_authstate) {
+		LOGI("fingerprint AuthState %d means wrong fingerprint, skip\n",
+			tcm->fingerprint_authstate);
+	} else {
+		update_fod_press_status(0);
+		LOGD("fingerprint AuthState %d update_fod_press_status\n",
+			tcm->fingerprint_authstate);
+	}
 
 	syna_pal_mutex_unlock(&tcm->tp_event_mutex);
 

@@ -1462,6 +1462,10 @@ static void syna_tcm_set_cur_value(int mode, int *value)
 		LOGI("mode:%d,value:%d\n", mode, value[0]);
 	else
 		LOGD("mode:%d,value:%d\n", mode, value[0]);
+	if (mode == TOUCH_FINGERPRINT_AUTHSTATE) {
+		tcm_hcd->fingerprint_authstate = value[0];
+		return;
+	}
 #ifdef TOUCH_THP_SUPPORT
 	if (mode == THP_LOCK_SCAN_MODE) {
 		syna_set_ic_mode(ENTER_IDLE_MODE, value);
@@ -1554,7 +1558,11 @@ static void syna_tcm_set_fod_value(s32 *value, int length)
 	LOGD("fod event,gesture_id:%d,x:%d,y:%d,area:%d,overlap:%d\n", gesture_id, fod_x, fod_y, fod_area, fod_overlap);
 	if (gesture_id == GESTURE_TOUCH_AND_HOLD_DOWN_EVENT || gesture_id == GESTURE_TOUCH_AND_HOLD_MOVE_EVENT) {
 		if ((xiaomi_get_gesture_type(TOUCH_ID) & GESTURE_LONGPRESS_EVENT) != 0) {
-			syna_touch_fod_down_event(tcm, fod_x, fod_y, fod_overlap, fod_area);
+			if (gesture_id == GESTURE_TOUCH_AND_HOLD_MOVE_EVENT &&
+				tcm->pwr_state == PWR_ON)
+				LOGI("FOD DOWN Detected when power on, skip\n");
+			else
+				syna_touch_fod_down_event(tcm, fod_x, fod_y, fod_overlap, fod_area);
 		} else if (gesture_id == GESTURE_TOUCH_AND_HOLD_DOWN_EVENT) {
 			LOGI("skip fod event because fod is not enabled\n");
 		}
