@@ -141,6 +141,19 @@ static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.moisture_duty_cycle_en = true,
 };
 
+static int usbhs_direction_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = wcd_mbhc_cfg.flip_switch;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new msm_common_snd_controls[] = {
+	SOC_SINGLE_EXT("USB Headset Direction", 0, 0, UINT_MAX, 0,
+		       usbhs_direction_get, NULL),
+};
+
 static bool msm_usbc_swap_gnd_mic(struct snd_soc_component *component, bool active)
 {
 	int ret = 0;
@@ -150,6 +163,8 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_component *component, bool acti
 
 	if (!pdata->wcd_usbss_handle && !pdata->fsa_handle)
 		return false;
+
+	wcd_mbhc_cfg.flip_switch = true;
 
 	if (pdata->fsa_handle) {
 		ret = fsa4480_switch_event(pdata->fsa_handle, FSA_MIC_GND_SWAP);
@@ -161,8 +176,8 @@ static bool msm_usbc_swap_gnd_mic(struct snd_soc_component *component, bool acti
 		else if (wcd_mbhc_cfg.enable_usbc_analog)
 			ret = wcd_usbss_switch_update(WCD_USBSS_GND_MIC_SWAP_AATC,
 							WCD_USBSS_CABLE_CONNECT);
-	}
 #endif
+	}
 	if (ret == 0)
 		return true;
 	else
@@ -2190,6 +2205,15 @@ static int msm_rx_tx_codec_init(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 	}
 
+	ret = snd_soc_add_component_controls(lpass_cdc_component,
+					     msm_common_snd_controls,
+					     ARRAY_SIZE(msm_common_snd_controls));
+	if (ret < 0) {
+		pr_err("%s: add common snd controls failed: %d\n",
+			__func__, ret);
+		return ret;
+	}
+
 	dapm = snd_soc_component_get_dapm(lpass_cdc_component);
 
 	snd_soc_dapm_new_controls(dapm, msm_int_dapm_widgets,
@@ -2533,9 +2557,6 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "property %s not detected in node %s\n",
 			"wcd939x-i2c-handle", pdev->dev.of_node->full_name);
 
-	if ((pdata->wcd_usbss_handle) || (pdata->fsa_handle))
-		wcd_mbhc_cfg.swap_gnd_mic = msm_usbc_swap_gnd_mic;
-
 	ret = devm_snd_soc_register_card(&pdev->dev, card);
 	if (ret == -EPROBE_DEFER) {
 		if (codec_reg_done)
@@ -2548,6 +2569,15 @@ static int msm_asoc_machine_probe(struct platform_device *pdev)
 	}
 	dev_info(&pdev->dev, "%s: Sound card %s registered\n",
 		 __func__, card->name);
+
+	/*
+	 * Only allow GND/MIC swapping once the card is up, and only when
+	 * analog audio over USB-C is supported.
+	 */
+	if (wcd_mbhc_cfg.enable_usbc_analog) {
+		dev_dbg(&pdev->dev, "%s: get swap_gnd_mic\n", __func__);
+		wcd_mbhc_cfg.swap_gnd_mic = msm_usbc_swap_gnd_mic;
+	}
 
 	pdata->dmic01_gpio_p = of_parse_phandle(pdev->dev.of_node,
 					      "qcom,cdc-dmic01-gpios",
