@@ -823,6 +823,34 @@ struct tcm_dev {
 			unsigned char *status_report_code);
 
 	/* abstraction to write a TouchComm message to device and retrieve the
+	 * response to command within the given time.
+	 * Function will be assigned by syna_tcm_detect_device().
+	 *
+	 * Same as write_message(), but waiting for the response for up to
+	 * timeout_ms milliseconds.
+	 *
+	 * @param
+	 *    [ in] tcm_dev:        the device handle
+	 *    [ in] command:        TouchComm command to write
+	 *    [ in] payload:        data payload, if any
+	 *    [ in] length_total:   length of total payload
+	 *    [ in] length:         length of payload data, if any
+	 *    [out] resp_code:      response code returned
+	 *    [ in] delay_ms_resp:  delay time for response reading.
+	 *                          a positive value presents the polling time;
+	 *                          or, set '0' (RESP_IN_ATTN) for ATTN driven
+	 *    [ in] timeout_ms:     time to wait for the response;
+	 *                          set '0' to apply CMD_RESPONSE_TIMEOUT_MS
+	 * @return
+	 *    0 or positive value on success; otherwise, on error.
+	 */
+	int (*write_message_timeout)(struct tcm_dev *tcm_dev,
+			unsigned char command, unsigned char *payload,
+			unsigned int length_total, unsigned int length,
+			unsigned char *resp_code, unsigned int delay_ms_resp,
+			unsigned int timeout_ms);
+
+	/* abstraction to write a TouchComm message to device and retrieve the
 	 * response to command.
 	 * Function will be assigned by syna_tcm_detect_device().
 	 *

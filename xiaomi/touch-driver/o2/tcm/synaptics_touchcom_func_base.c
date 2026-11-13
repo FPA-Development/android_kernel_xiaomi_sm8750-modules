@@ -237,6 +237,7 @@ int syna_tcm_allocate_device(struct tcm_dev **ptcm_dev_ptr,
 	tcm_dev->max_wr_size = hw_if->bdata_io.wr_chunk_size;
 
 	tcm_dev->write_message = NULL;
+	tcm_dev->write_message_timeout = NULL;
 	tcm_dev->read_message = NULL;
 
 	tcm_dev->cb_custom_touch_entity = NULL;
