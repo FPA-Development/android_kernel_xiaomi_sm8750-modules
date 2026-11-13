@@ -2338,6 +2338,17 @@ static int wcd939x_codec_enable_adc(struct snd_soc_dapm_widget *w,
 		wcd939x->tx_swr_dev->dev_num) ? 0 : 1);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		/*
+		 * An ESD event can reset ANA_BIAS (0x3001) from 0x80 to 0x00,
+		 * which leaves the analog microphones muted. Restore it before
+		 * powering up an ADC.
+		 */
+		if (snd_soc_component_read(component, WCD939X_BIAS) != 0x80) {
+			pr_info("%s: ESD WA: writing 0x80 to WCD939X_BIAS\n",
+				__func__);
+			snd_soc_component_update_bits(component, WCD939X_BIAS,
+						      0xFF, 0x80);
+		}
 		wcd939x->adc_count++;
 		if (test_bit(WCD_ADC1, &wcd939x->status_mask) ||
 			test_bit(WCD_ADC1_MODE, &wcd939x->status_mask))

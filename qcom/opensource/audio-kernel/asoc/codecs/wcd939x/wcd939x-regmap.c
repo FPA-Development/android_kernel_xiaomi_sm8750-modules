@@ -585,6 +585,10 @@ static bool wcd939x_volatile_register(struct device *dev, unsigned int reg)
 	if (reg <= WCD939X_BASE + 1)
 		return 0;
 
+	/* Never cache BIAS, see the ESD workaround in wcd939x_codec_enable_adc() */
+	if (reg == WCD939X_BIAS)
+		return 1;
+
 	return ((wcd939x_reg_access[WCD939X_REG(reg)] & RD_REG) &&
 		!(wcd939x_reg_access[WCD939X_REG(reg)] & WR_REG));
 }
