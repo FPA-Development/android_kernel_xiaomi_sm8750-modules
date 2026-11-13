@@ -285,7 +285,7 @@ static void xiaomi_touch_cmd_update_work(struct work_struct *work)
 	int i = 0;
 	s8 touch_id = get_work_touch_id(cmd_update_work, work);
 	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(touch_id);
-	long mode_update_flag = 0;
+	long long mode_update_flag = 0;
 	int mode_value[Touch_Mode_NUM];
 	LOG_INFO("touch id %d enter", touch_id);
 	if (!xiaomi_touch_driver_param)
@@ -301,7 +301,7 @@ static void xiaomi_touch_cmd_update_work(struct work_struct *work)
 
 		if (touch_mode[touch_id][i][GET_CUR_VALUE] != touch_mode[touch_id][i][SET_CUR_VALUE]) {
 			touch_mode[touch_id][i][GET_CUR_VALUE] = touch_mode[touch_id][i][SET_CUR_VALUE];
-			mode_update_flag |= 1 << i;
+			mode_update_flag |= 1LL << i;
 			LOG_INFO("mode: %d, set value: %d", i, touch_mode[touch_id][i][SET_CUR_VALUE]);
 		}
 		mode_value[i] = touch_mode[touch_id][i][GET_CUR_VALUE];
@@ -312,7 +312,7 @@ static void xiaomi_touch_cmd_update_work(struct work_struct *work)
 	}
 
 	if (mode_update_flag & ((1 << Touch_Game_Mode) | (1 << Touch_Panel_Orientation) | (1 << Touch_Edge_Filter))) {
-		LOG_INFO("mode_update_flag: 0x%02lX", mode_update_flag);
+		LOG_INFO("mode_update_flag: 0x%02llX", mode_update_flag);
 		schedule_work(&grid_update_work[touch_id]);
 	}
 
@@ -583,7 +583,9 @@ static void xiaomi_touch_reset_mode(common_data_t *common_data)
 	if (mode < Touch_Mode_NUM && mode > 0) {
 		touch_mode[common_data->touch_id][mode][SET_CUR_VALUE] =
 			touch_mode[common_data->touch_id][mode][GET_DEF_VALUE];
-
+		LOG_DEBUG("set cur value: %d, get def value: %d",
+			touch_mode[common_data->touch_id][mode][SET_CUR_VALUE],
+			touch_mode[common_data->touch_id][mode][GET_DEF_VALUE]);
 	} else if (mode == 0) {
 		for (i = 0; i < Touch_Report_Rate; i++) {
 			if (i == Touch_Panel_Orientation) {
@@ -619,10 +621,6 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 
 	if (mode >= Touch_Mode_NUM) {
 		if (mode == Touch_Resolution) {
-			if (!touch_mode[touch_id][Touch_Game_Mode][GET_CUR_VALUE])
-				val = 1;
-			else
-				val = ((common_data->data_buf)[0] == 1 ? 16 : 8);
 			if (xiaomi_touch_driver_param->hardware_operation.set_mode_value)
 				xiaomi_touch_driver_param->hardware_operation.set_mode_value(mode, &val);
 			return;
@@ -643,6 +641,7 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 	switch (mode) {
 	case Touch_Power_Status:
 		touch_mode[touch_id][mode][GET_CUR_VALUE] = val;
+		LOG_INFO("Touch_Power_Status value [%d]", val);
 		if (val) {
 			schedule_resume_suspend_work(touch_id, true);
 		} else {
@@ -722,6 +721,16 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 		LOG_INFO("Touch sensor enable: %d", val);
 		value = val > 0 ? XIAOMI_TOUCH_ENABLE_SENSOR : XIAOMI_TOUCH_DISABLE_SENSOR;
 		add_common_data_to_buf(touch_id, SET_CUR_VALUE, Touch_Suspend, 1, &value);
+		break;
+	case Touch_Is_In_Input_Method:
+		LOG_INFO("Touch_Is_In_Input_Method: %d", val);
+		if (xiaomi_touch_driver_param->hardware_operation.set_mode_value)
+			xiaomi_touch_driver_param->hardware_operation.set_mode_value(mode, &val);
+		break;
+	case TOUCH_FINGERPRINT_AUTHSTATE:
+		LOG_INFO("TOUCH_FINGERPRINT_AUTHSTATE: %d", val);
+		if (xiaomi_touch_driver_param->hardware_operation.set_mode_value)
+			xiaomi_touch_driver_param->hardware_operation.set_mode_value(mode, &val);
 		break;
 	default:
 		LOG_ERROR("touch id %d don't not support mode %d", touch_id, mode);

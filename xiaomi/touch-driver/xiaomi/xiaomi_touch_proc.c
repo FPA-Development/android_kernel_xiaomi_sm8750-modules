@@ -24,6 +24,8 @@
 #define PROC_COUNT_FOR_PANEL	(4)
 #define DUMP_DATA_BUF_SIZE		(PAGE_SIZE * 3)
 #define NORMAL_DATA_BUF_SIZE	(256)
+#define SELF_TEST_RETRY_COUNT	(5)
+#define SELF_TEST_PASS		(2)
 
 typedef struct xiaomi_touch_proc_data {
 	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param;
@@ -144,6 +146,10 @@ static ssize_t proc_tp_read(struct file *file, char __user *buf, size_t count, l
 		n += snprintf(xiaomi_touch_proc_data->tp_proc_result_buf + n, NORMAL_DATA_BUF_SIZE - n, "driver version: %s\n", xiaomi_touch_driver_param->hardware_param.driver_version);
 		n += snprintf(xiaomi_touch_proc_data->tp_proc_result_buf + n, NORMAL_DATA_BUF_SIZE - n, "hal version: %s\n", xiaomi_touch_driver_param->hal_version);
 		n += snprintf(xiaomi_touch_proc_data->tp_proc_result_buf + n, NORMAL_DATA_BUF_SIZE - n, "xiaomi-touch version: %s\n", XIAOMI_TOUCH_VERSION);
+		if (xiaomi_touch_driver_param->hardware_operation.get_limit_csv_version) {
+			xiaomi_touch_driver_param->hardware_operation.get_limit_csv_version(xiaomi_touch_driver_param->limit_csv_version);
+			n += snprintf(xiaomi_touch_proc_data->tp_proc_result_buf + n, NORMAL_DATA_BUF_SIZE - n, "limit version: %s\n", xiaomi_touch_driver_param->limit_csv_version);
+		}
 		xiaomi_touch_proc_data->tp_proc_result_length = n;
 	} else if (!strncmp("tp_lockdown_info", name, 16)) {
 		u8 *lockdown_info = xiaomi_touch_driver_param->hardware_param.lockdown_info;
@@ -216,6 +222,7 @@ static ssize_t proc_tp_write(struct file *file, const char __user *buf, size_t c
 	} else if (!strncmp("tp_selftest", name, 11)) {
 		static char self_test_cmd[64];
 		size_t temp_count = count;
+		int retry;
 		memset(self_test_cmd, 0, 64);
 		if (temp_count >= 64) {
 			LOG_ERROR("write self test cmd length too long, current length is %zu", temp_count);
@@ -225,9 +232,15 @@ static ssize_t proc_tp_write(struct file *file, const char __user *buf, size_t c
 			LOG_ERROR("copy self test has error");
 			return -EFAULT;
 		}
-		if (xiaomi_touch_driver_param->hardware_operation.ic_self_test)
-			xiaomi_touch_driver_param->hardware_operation.ic_self_test(self_test_cmd, &self_test_result[touch_id]);
-		LOG_ERROR("start self test cmd: %s", self_test_cmd);
+		if (xiaomi_touch_driver_param->hardware_operation.ic_self_test) {
+			for (retry = 0; retry < SELF_TEST_RETRY_COUNT; retry++) {
+				xiaomi_touch_driver_param->hardware_operation.ic_self_test(self_test_cmd, &self_test_result[touch_id]);
+				LOG_ERROR("start self test cmd: %s", self_test_cmd);
+				if (self_test_result[touch_id] == SELF_TEST_PASS)
+					break;
+				LOG_ERROR("self test failed, result is %d, retry %d times", self_test_result[touch_id], retry);
+			}
+		}
 	}
 
 	return count;

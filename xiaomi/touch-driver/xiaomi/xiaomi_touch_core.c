@@ -177,7 +177,7 @@ void notify_xiaomi_touch(xiaomi_touch_data_t *xiaomi_touch_data, enum poll_notif
 		return;
 	spin_lock(&xiaomi_touch_data->private_data_lock);
 	list_for_each_entry_rcu(client_private_data, &xiaomi_touch_data->private_data_list, node) {
-		LOG_DEBUG("notify xiaomi-touch data update, client private data is %p", client_private_data);
+		LOG_VERBOSE("notify xiaomi-touch data update, client private data is %p", client_private_data);
 		wake_up_all(&client_private_data->poll_wait_queue_head);
 		if (type == COMMON_DATA_NOTIFY) {
 			wake_up_all(&client_private_data->poll_wait_queue_head_for_cmd);
@@ -199,7 +199,7 @@ void add_common_data_to_buf(s8 touch_id, enum common_data_cmd cmd, enum common_d
 	if (!xiaomi_touch_data)
 		return;
 
-	LOG_DEBUG("add touch id %d common data to %d", touch_id, atomic_read(&xiaomi_touch_data->common_data_buf_index));
+	LOG_DEBUG("add touch id %d common mode: %d to buffer:%d", touch_id, mode, atomic_read(&xiaomi_touch_data->common_data_buf_index));
 	mutex_lock(&xiaomi_touch_data->common_data_buf_lock);
 	common_data = &xiaomi_touch_data->common_data_buf[atomic_read(&xiaomi_touch_data->common_data_buf_index)];
 	common_data->touch_id = touch_id;
@@ -298,10 +298,11 @@ static int xiaomi_touch_temp_thread_func(void *data)
 	int temp_n = 0;
 	static int last_temp = 1000;
 	int cur_temp0, cur_temp = 0;
-	xiaomi_touch_data_t *xiaomi_touch_data = get_xiaomi_touch_data(0);
-	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(0);
+	s8 touch_id = (s8)(long)data;
+	xiaomi_touch_data_t *xiaomi_touch_data = get_xiaomi_touch_data(touch_id);
+	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(touch_id);
 
-	LOG_INFO("enter");
+	LOG_INFO("enter, touch id %d\n", touch_id);
 	if (!xiaomi_touch_data || !xiaomi_touch_driver_param ||
 			!xiaomi_touch_driver_param->hardware_operation.set_thermal_temp)
 		return -1;
@@ -486,7 +487,8 @@ int register_touch_panel(struct device *dev, s8 touch_id, hardware_param_t *hard
 	/* create a thread for temp detect */
 	if (hardware_operation && hardware_operation->set_thermal_temp) {
 		LOG_INFO("startup temperature detect thread");
-		xiaomi_touch_temp_thread = kthread_create(xiaomi_touch_temp_thread_func, NULL, "xiaomi_touch_temp_thread");
+		xiaomi_touch_temp_thread = kthread_create(xiaomi_touch_temp_thread_func,
+				(void *)(long)touch_id, "xiaomi_touch_temp_thread");
 		if (IS_ERR(xiaomi_touch_temp_thread)) {
 			LOG_ERROR("Failed to create xiaomi_touch_temp_thread");
 			goto err_out;
@@ -849,6 +851,23 @@ void xiaomi_unregister_panel_notifier(struct device *dev, s8 touch_id)
 }
 EXPORT_SYMBOL_GPL(xiaomi_unregister_panel_notifier);
 
+void nfc_to_touch_event(s8 touch_id, u8 value)
+{
+	xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(touch_id);
+
+	LOG_INFO("enter touch_id =%d val = %d", touch_id, value);
+	if (!xiaomi_touch_driver_param) {
+		LOG_INFO("Touch panel  id %d hasn't register, return!", touch_id);
+		return;
+	}
+
+	if (xiaomi_touch_driver_param->hardware_operation.set_nfc_to_touch_event)
+		xiaomi_touch_driver_param->hardware_operation.set_nfc_to_touch_event(value);
+	else
+		LOG_INFO("Non-filp models do not support this function");
+}
+EXPORT_SYMBOL_GPL(nfc_to_touch_event);
+
 static int xiaomi_get_charging_status(void)
 {
 	struct power_supply *usb_psy;
@@ -930,7 +949,7 @@ static void xiaomi_unregister_power_supply_event(void)
 
 static int xiaomi_touch_probe(struct platform_device *pdev)
 {
-	LOG_INFO("enter");
+	LOG_ALWAYS("xiaomi_touch ver: %s", XIAOMI_TOUCH_VERSION);
 #ifdef TOUCH_KNOCK_SUPPORT
 	knock_node_init();
 #endif

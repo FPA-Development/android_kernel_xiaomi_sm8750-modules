@@ -492,6 +492,22 @@ CREATE_ATTR(fod_test, {
 
 		return count;
 	});
+
+CREATE_ATTR(fod_attn_test, {
+		return 0;
+	},
+	{
+		int value = 0;
+		xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(TOUCH_ID);
+
+		if (sscanf(buf, "%d", &value) < 0)
+			return -EINVAL;
+
+		if (xiaomi_touch_driver_param && xiaomi_touch_driver_param->hardware_operation.xiaomi_touch_fod_attn_test)
+			xiaomi_touch_driver_param->hardware_operation.xiaomi_touch_fod_attn_test(value);
+
+		return count;
+	});
 #endif
 
 CREATE_ATTR(touch_log_level, {
@@ -526,6 +542,7 @@ static struct attribute *touch_attr_group[] = {
 #ifdef TOUCH_FOD_SUPPORT
 	&dev_attr_fod_press_status.attr,
 	&dev_attr_fod_test.attr,
+	&dev_attr_fod_attn_test.attr,
 #endif
 	&dev_attr_panel_vendor.attr,
 	&dev_attr_panel_color.attr,
@@ -547,7 +564,7 @@ static struct attribute *touch_attr_group[] = {
 int xiaomi_touch_sys_init(void)
 {
 	int ret = 0;
-	LOG_ERROR("enter");
+	LOG_ALWAYS("enter");
 	xiaomi_touch_class = class_create("touch");
 
 	if (!xiaomi_touch_class) {

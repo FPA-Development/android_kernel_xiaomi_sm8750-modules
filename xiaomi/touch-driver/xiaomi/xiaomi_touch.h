@@ -11,15 +11,16 @@
 #include <linux/string.h>
 #include "xiaomi_touch_type_common.h"
 
-#define XIAOMI_TOUCH_VERSION    "2024.08.07-01"
+#define XIAOMI_TOUCH_VERSION    "2024.08.30-01"
 
 #define BTN_INFO 0x152
 
-#define LOG_TAG					"MI_TP"
+#define LOG_TAG					"[MI_TP"
 #define COMMON_DATA_BUF_SIZE    10
 #define MAX_TOUCH_PANEL_COUNT   2
 #define MAX_TOUCH_ID 10
 #define HAL_VERSION_LENGTH  128
+#define LIMIT_CSV_VERSION_LENGTH  30
 
 #define GESTURE_LONGPRESS_EVENT 0x01
 #define GESTURE_SINGLETAP_EVENT 0x02
@@ -132,10 +133,12 @@ extern enum MI_TP_LOG_LEVEL current_log_level;
 	do { \
 		struct timespec64 ts; \
 		struct tm tm; \
+		s64 kt = ktime_get(); \
 		ktime_get_real_ts64(&ts); \
 		time64_to_tm(ts.tv_sec, 0, &tm); \
-		LOG_INFO("%s [xiaomi_touch_utc] [%ld-%02d-%02d %02d:%02d:%02d.%06lu]\n", \
-			tag, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, \
+		LOG_INFO("%s[ktime:utc] [%llu.%llu : %ld-%02d-%02d %02d:%02d:%02d.%06lu]\n", \
+			tag, kt / NSEC_PER_SEC, (kt % NSEC_PER_SEC) / NSEC_PER_MSEC, \
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, \
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec/1000); \
 	} while(0)
 
@@ -205,6 +208,7 @@ typedef struct hardware_operation {
 	int (*ic_data_collect)(char *buf, int *length);
 	int (*ic_get_lockdown_info)(u8 lockdown_info[8]);
 	int (*ic_get_fw_version)(char fw_version[64]);
+	int (*get_limit_csv_version)(char *limit_csv_version);
 
 	void (*set_mode_value)(int mode, int *value);
 	void (*get_mode_value)(common_data_t *common_data);
@@ -225,6 +229,8 @@ typedef struct hardware_operation {
 	int (*touch_doze_analysis)(int value);
 	int (*touch_log_level_control)(bool value);
 	int (*touch_log_level_control_v2)(int value);
+	void (*set_nfc_to_touch_event)(u8 value);
+	void (*display_suspend_ready)(void);
 	int (*htc_ic_setModeValue)(common_data_t *common_data);
 	int (*htc_ic_getModeValue)(common_data_t *common_data);
 
@@ -233,13 +239,16 @@ typedef struct hardware_operation {
 	void (*ic_set_fod_value)(s32 value[], int length);
 #ifdef TOUCH_FOD_SUPPORT
 	void (*xiaomi_touch_fod_test)(int value);
+	void (*xiaomi_touch_fod_attn_test)(int value);
 #endif
 	int (*set_thermal_temp)(int temp, bool force);
+	void (*touch_dfs_test)(int value);
 } hardware_operation_t;
 
 typedef struct xiaomi_touch_driver_param {
 	s8 touch_id;
 	char hal_version[HAL_VERSION_LENGTH];
+	char limit_csv_version[LIMIT_CSV_VERSION_LENGTH];
 	hardware_param_t hardware_param;
 	hardware_operation_t hardware_operation;
 } xiaomi_touch_driver_param_t;
@@ -327,6 +336,7 @@ void kvzalloc_free(void *p);
 
 xiaomi_touch_data_t *get_xiaomi_touch_data(s8 touch_id);
 xiaomi_touch_driver_param_t *get_xiaomi_touch_driver_param(s8 touch_id);
+void nfc_to_touch_event(s8 touch_id, u8 value);
 
 int xiaomi_touch_create_proc(xiaomi_touch_driver_param_t *xiaomi_touch_driver_param);
 int xiaomi_touch_remove_proc(s8 touch_id);
