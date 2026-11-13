@@ -754,6 +754,61 @@ static inline void dp_prealloc_page_pool_deinit(void)
 }
 #endif
 
+#define DP_PREALLOC_RETRY_CNT		5
+#define DP_PREALLOC_RETRY_DELAY_MS	200
+
+/**
+ * dp_prealloc_mem_malloc() - Allocate DP prealloc context memory
+ * @size: size to allocate
+ *
+ * The prealloc pool is set up once at driver load, when memory may be
+ * fragmented, so retry a few times before giving up.
+ *
+ * Return: allocated memory, NULL on failure
+ */
+static void *dp_prealloc_mem_malloc(size_t size)
+{
+	int retry_cnt = DP_PREALLOC_RETRY_CNT;
+	void *addr;
+
+	while (!(addr = qdf_mem_malloc(size)) && retry_cnt--) {
+		dp_warn("dp prealloc mem fail, retry_cnt: %d", retry_cnt);
+		qdf_mdelay(DP_PREALLOC_RETRY_DELAY_MS);
+	}
+
+	return addr;
+}
+
+/**
+ * dp_prealloc_mem_alloc_consistent() - Allocate DP prealloc ring memory
+ * @qdf_ctx: QDF device context
+ * @p: consistent prealloc element to fill
+ *
+ * Like dp_prealloc_mem_malloc(), retry a few times before giving up.
+ *
+ * Return: aligned virtual address, NULL on failure
+ */
+static void *
+dp_prealloc_mem_alloc_consistent(qdf_device_t qdf_ctx,
+				 struct dp_consistent_prealloc *p)
+{
+	int retry_cnt = DP_PREALLOC_RETRY_CNT;
+	void *addr;
+
+	while (!(addr = qdf_aligned_mem_alloc_consistent(qdf_ctx, &p->size,
+							 &p->va_unaligned,
+							 &p->pa_unaligned,
+							 &p->pa_aligned,
+							 DP_RING_BASE_ALIGN)) &&
+	       retry_cnt--) {
+		dp_warn("dp prealloc consistent mem fail, retry_cnt: %d",
+			retry_cnt);
+		qdf_mdelay(DP_PREALLOC_RETRY_DELAY_MS);
+	}
+
+	return addr;
+}
+
 void dp_prealloc_deinit(void)
 {
 	int i;
@@ -1128,7 +1183,7 @@ QDF_STATUS dp_prealloc_init(struct cdp_ctrl_objmgr_psoc *ctrl_psoc)
 		cp = &g_dp_context_allocs[i];
 		dp_update_mem_size_by_ctx_type(&cfg, cp->ctxt_type,
 					       &cp->size);
-		cp->addr = qdf_mem_malloc(cp->size);
+		cp->addr = dp_prealloc_mem_malloc(cp->size);
 
 		if (qdf_unlikely(!cp->addr) && cp->is_critical) {
 			dp_warn("i %d: unable to preallocate %d bytes memory!",
@@ -1146,13 +1201,7 @@ QDF_STATUS dp_prealloc_init(struct cdp_ctrl_objmgr_psoc *ctrl_psoc)
 		p = &g_dp_consistent_allocs[i];
 		p->in_use = 0;
 		dp_update_mem_size_by_ring_type(&cfg, p->ring_type, &p->size);
-		p->va_aligned =
-			qdf_aligned_mem_alloc_consistent(qdf_ctx,
-							 &p->size,
-							 &p->va_unaligned,
-							 &p->pa_unaligned,
-							 &p->pa_aligned,
-							 DP_RING_BASE_ALIGN);
+		p->va_aligned = dp_prealloc_mem_alloc_consistent(qdf_ctx, p);
 		if (qdf_unlikely(!p->va_unaligned)) {
 			dp_warn("i %d: unable to preallocate %d bytes memory!",
 				i, p->size);
