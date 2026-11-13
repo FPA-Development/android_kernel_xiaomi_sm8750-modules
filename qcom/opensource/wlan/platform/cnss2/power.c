@@ -6,6 +6,7 @@
 
 #include <linux/clk.h>
 #include <linux/delay.h>
+#include <linux/hwid.h>
 #include <linux/of.h>
 #include <linux/gpio/consumer.h>
 #include <linux/of_gpio.h>
@@ -141,6 +142,21 @@ enum cnss_aop_tcs_seq_param {
 	CNSS_TCS_SEQ_MAX
 };
 
+/*
+ * On Xiaomi hwid projects 3 and 4 the WLAN always-on rail is supplied by
+ * S4D and must stay voted when the WLAN chip is powered off.
+ */
+static void cnss_vreg_update_aon_unvote(struct cnss_vreg_info *vreg)
+{
+	u32 hw_project = get_hw_version_platform();
+
+	if ((hw_project == 3 || hw_project == 4) &&
+	    !strcmp(vreg->cfg.name, "vdd-wlan-aon")) {
+		vreg->cfg.need_unvote = 0;
+		cnss_pr_dbg("vote S4D: %s\n", vreg->cfg.name);
+	}
+}
+
 static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 				struct cnss_vreg_info *vreg)
 {
@@ -184,6 +200,7 @@ static int cnss_get_vreg_single(struct cnss_plat_data *plat_priv,
 		vreg->cfg.load_ua = be32_to_cpup(&prop[2]);
 		vreg->cfg.delay_us = be32_to_cpup(&prop[3]);
 		vreg->cfg.need_unvote = be32_to_cpup(&prop[4]);
+		cnss_vreg_update_aon_unvote(vreg);
 	}
 
 	cnss_pr_dbg("Got regulator: %s, min_uv: %u, max_uv: %u, load_ua: %u, delay_us: %u, need_unvote: %u\n",
