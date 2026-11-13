@@ -41,6 +41,11 @@
 #include "synaptics_touchcom_func_base.h"
 #include "synaptics_touchcom_func_touch.h"
 
+/* attempts to request the application info */
+#define GET_APP_INFO_RETRY (3)
+/* messages to read out of the device after a failed request */
+#define GET_APP_INFO_FLUSH_READS (3)
+
 
 /**
  * syna_tcm_change_resp_read()
@@ -1106,9 +1111,12 @@ int syna_tcm_get_app_info(struct tcm_dev *tcm_dev,
 {
 	int retval = 0;
 	unsigned char resp_code;
+	unsigned char status;
 	unsigned int app_status;
 	unsigned int resp_data_len = 0;
 	unsigned int copy_size;
+	unsigned int retry;
+	unsigned int idx;
 	struct tcm_application_info *info;
 
 	if (!tcm_dev) {
@@ -1122,15 +1130,26 @@ int syna_tcm_get_app_info(struct tcm_dev *tcm_dev,
 		return -ERR_INVAL;
 	}
 
-	retval = tcm_dev->write_message(tcm_dev,
-			CMD_GET_APPLICATION_INFO,
-			NULL,
-			0,
-			0,
-			&resp_code,
-			tcm_dev->msg_data.default_resp_reading);
+	for (retry = 0; retry < GET_APP_INFO_RETRY; retry++) {
+		retval = tcm_dev->write_message(tcm_dev,
+				CMD_GET_APPLICATION_INFO,
+				NULL,
+				0,
+				0,
+				&resp_code,
+				tcm_dev->msg_data.default_resp_reading);
+		if (retval >= 0)
+			break;
+
+		LOGE("Fail to send command 0x%02x retry:%d\n",
+			CMD_GET_APPLICATION_INFO, retry);
+
+		/* read out the messages left in the device before retrying */
+		for (idx = 0; idx < GET_APP_INFO_FLUSH_READS; idx++)
+			tcm_dev->read_message(tcm_dev, &status);
+	}
 	if (retval < 0) {
-		LOGE("Fail to send command 0x%02x\n",
+		LOGE("Fail to send command 0x%02x goto exit\n",
 			CMD_GET_APPLICATION_INFO);
 		goto exit;
 	}
