@@ -1075,6 +1075,9 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 		if (mbhc->mbhc_cb->mbhc_force_micbias_disable)
 			mbhc->mbhc_cb->mbhc_force_micbias_disable(
 					component, MIC_BIAS_2);
+		else if (mbhc->mbhc_cb->mbhc_micbias_control)
+			mbhc->mbhc_cb->mbhc_micbias_control(component,
+					MIC_BIAS_2, MICB_DISABLE);
 
 		/* Disable external voltage source to micbias if present */
 		if (mbhc->mbhc_cb->enable_mb_source)
