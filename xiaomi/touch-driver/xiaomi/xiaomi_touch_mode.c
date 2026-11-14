@@ -741,10 +741,8 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 static DEFINE_MUTEX(ioctl_operation_mutex);
 int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsigned long arg)
 {
-	mutex_lock(&ioctl_operation_mutex);
 	if (user_size != sizeof(common_data_t)) {
 		LOG_ERROR("error common data size %d %lu, return!", user_size, sizeof(common_data_t));
-		mutex_unlock(&ioctl_operation_mutex);
 		return -EINVAL;
 	} else {
 		common_data_t common_data;
@@ -752,20 +750,17 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 		int copy_size = copy_from_user(&common_data, (void __user *)arg, user_size);
 		if (copy_size) {
 			LOG_ERROR("copy cmd from user failed, return! value %d", copy_size);
-			mutex_unlock(&ioctl_operation_mutex);
 			return -1;
 		}
 
 		if (client_private_data->touch_id != common_data.touch_id) {
 			LOG_ERROR("client id is not equal common data id, please check it!");
-			mutex_unlock(&ioctl_operation_mutex);
 			return -1;
 		}
 
 		xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(common_data.touch_id);
 		if (!xiaomi_touch_driver_param) {
 			LOG_ERROR("please select touch id first, then send common data!");
-			mutex_unlock(&ioctl_operation_mutex);
 			return -1;
 		}
 
@@ -775,6 +770,11 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 			LOG_INFO("cmd: %d, mode: %d, data_buf[0]: %d", common_data.cmd, common_data.mode, common_data.data_buf[0]);
 		}
 
+		/* The THP HAL writes its gesture type back, nothing to do for it */
+		if (common_data.cmd == SET_LONG_VALUE && common_data.mode == Touch_Thp_Gesture_Type)
+			return 0;
+
+		mutex_lock(&ioctl_operation_mutex);
 		switch (common_data.cmd) {
 		case SET_THP_IC_CUR_VALUE:
 			if (xiaomi_touch_driver_param->hardware_operation.htc_ic_setModeValue) {
@@ -841,10 +841,12 @@ int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsign
 			return -EINVAL;
 		}
 
-		if (common_data.mode < THP_CMD_BASE || common_data.mode == THP_HAL_INIT_READY) {
+		/* Only the modes the THP HAL handles are passed on to it */
+		if ((common_data.mode >= Touch_Stylus_Enable && common_data.mode < TOUCH_MOTION_BASE) ||
+				common_data.mode == THP_HAL_INIT_READY) {
 			add_common_data_to_buf(common_data.touch_id, common_data.cmd, common_data.mode, common_data.data_len, common_data.data_buf);
 		}
+		mutex_unlock(&ioctl_operation_mutex);
 	}
-	mutex_unlock(&ioctl_operation_mutex);
 	return 0;
 }
