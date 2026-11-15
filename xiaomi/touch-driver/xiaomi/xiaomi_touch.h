@@ -308,6 +308,7 @@ void schedule_resume_suspend_work(s8 touch_id, bool resume_work);
 void driver_update_touch_mode(s8 touch_id, int touch_mode[Touch_Mode_NUM], long update_mode_mask);
 u8 xiaomi_get_gesture_type(s8 touch_id);
 int driver_get_touch_mode(s8 touch_id, int mode);
+int xiaomi_touch_set_cur_value(s8 touch_id, u16 mode, s32 value);
 #ifdef TOUCH_SENSORHUB_SUPPORT
 void xiaomi_set_sensorhub_nonui_enable(bool status);
 bool xiaomi_get_sensorhub_nonui_enable(void);

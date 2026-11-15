@@ -739,6 +739,31 @@ static void xiaomi_touch_set_mode_value(common_data_t *common_data)
 }
 
 static DEFINE_MUTEX(ioctl_operation_mutex);
+/*
+ * Set one touch mode as the touch HAL's SET_CUR_VALUE request does, for
+ * userspace that only has the sysfs switches.
+ */
+int xiaomi_touch_set_cur_value(s8 touch_id, u16 mode, s32 value)
+{
+	common_data_t common_data = {
+		.touch_id = touch_id,
+		.cmd = SET_CUR_VALUE,
+		.mode = mode,
+		.data_len = 1,
+		.data_buf = { value },
+	};
+
+	if (touch_id < 0 || touch_id >= MAX_TOUCH_PANEL_COUNT || mode >= Touch_Mode_NUM ||
+			!get_xiaomi_touch_driver_param(touch_id))
+		return -ENODEV;
+
+	mutex_lock(&ioctl_operation_mutex);
+	xiaomi_touch_set_mode_value(&common_data);
+	mutex_unlock(&ioctl_operation_mutex);
+
+	return 0;
+}
+
 int xiaomi_touch_mode(private_data_t *client_private_data, u32 user_size, unsigned long arg)
 {
 	if (user_size != sizeof(common_data_t)) {

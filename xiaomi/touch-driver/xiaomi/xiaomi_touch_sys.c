@@ -538,9 +538,62 @@ CREATE_ATTR(touch_log_level, {
 		return count;
 	});
 
+/*
+ * Switches for the gestures the touchscreen detects while the display is off,
+ * as LineageOS userspace expects them: a double tap wakes the device, and a
+ * long press on the fingerprint sensor area updates fod_press_status.
+ */
+static ssize_t touch_gesture_mode_show(int mode, char *buf)
+{
+	return sysfs_emit(buf, "%d\n", driver_get_touch_mode(TOUCH_ID, mode) > 0);
+}
+
+static ssize_t touch_gesture_mode_store(int mode, const char *buf, size_t count)
+{
+	bool enable;
+	int ret;
+
+	if (kstrtobool(buf, &enable))
+		return -EINVAL;
+
+	ret = xiaomi_touch_set_cur_value(TOUCH_ID, mode, enable);
+
+	return ret ? ret : count;
+}
+
+static ssize_t gesture_double_tap_enabled_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return touch_gesture_mode_show(Touch_Doubletap_Mode, buf);
+}
+
+static ssize_t gesture_double_tap_enabled_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	return touch_gesture_mode_store(Touch_Doubletap_Mode, buf, count);
+}
+static DEVICE_ATTR_RW(gesture_double_tap_enabled);
+
+#ifdef TOUCH_FOD_SUPPORT
+static ssize_t fod_longpress_gesture_enabled_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return touch_gesture_mode_show(Touch_Fod_Enable, buf);
+}
+
+static ssize_t fod_longpress_gesture_enabled_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	return touch_gesture_mode_store(Touch_Fod_Enable, buf, count);
+}
+static DEVICE_ATTR_RW(fod_longpress_gesture_enabled);
+#endif
+
 static struct attribute *touch_attr_group[] = {
+	&dev_attr_gesture_double_tap_enabled.attr,
 #ifdef TOUCH_FOD_SUPPORT
 	&dev_attr_fod_press_status.attr,
+	&dev_attr_fod_longpress_gesture_enabled.attr,
 	&dev_attr_fod_test.attr,
 	&dev_attr_fod_attn_test.attr,
 #endif
