@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+obj-$(CONFIG_SND_SOC_SIA91XX) += sia91xx_dlkm.o
+sia91xx_dlkm-y := sipa.o sipa_91xx.o sipa_aux_dev_if.o sipa_parameter.o sipa_regmap.o
+
+obj-$(CONFIG_SND_SOC_SIA91XX) += sia91xx_tuning_dlkm.o
+sia91xx_tuning_dlkm-y := sipa_tuning_if.o sipa_tuning_misc.o
+
+ccflags-y := $(INCS) -I$(AUDIO_ROOT)/include -I$(AUDIO_ROOT)/include/uapi/audio
