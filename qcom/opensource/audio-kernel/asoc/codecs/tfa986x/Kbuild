@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+obj-$(CONFIG_SND_SOC_TFA986X) += tfa98xx_dlkm.o
+tfa98xx_dlkm-y := src/tfa_container.o src/tfa_dsp.o src/tfa_init.o src/tfa98xx.o
+
+ccflags-y := $(INCS) -I$(AUDIO_ROOT)/include -I$(AUDIO_ROOT)/include/uapi/audio -I$(src)/src
