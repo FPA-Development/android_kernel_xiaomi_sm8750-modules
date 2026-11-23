@@ -508,6 +508,22 @@ CREATE_ATTR(fod_attn_test, {
 
 		return count;
 	});
+
+CREATE_ATTR(fod_low_attn, {
+		return 0;
+	},
+	{
+		int value = 0;
+		xiaomi_touch_driver_param_t *xiaomi_touch_driver_param = get_xiaomi_touch_driver_param(TOUCH_ID);
+
+		if (sscanf(buf, "%d", &value) < 0)
+			return -EINVAL;
+
+		if (xiaomi_touch_driver_param && xiaomi_touch_driver_param->hardware_operation.xiaomi_touch_fod_low_attn)
+			xiaomi_touch_driver_param->hardware_operation.xiaomi_touch_fod_low_attn(value);
+
+		return count;
+	});
 #endif
 
 CREATE_ATTR(touch_log_level, {
@@ -596,6 +612,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_fod_longpress_gesture_enabled.attr,
 	&dev_attr_fod_test.attr,
 	&dev_attr_fod_attn_test.attr,
+	&dev_attr_fod_low_attn.attr,
 #endif
 	&dev_attr_panel_vendor.attr,
 	&dev_attr_panel_color.attr,

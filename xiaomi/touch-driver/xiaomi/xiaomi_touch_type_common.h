@@ -287,6 +287,7 @@ enum common_data_mode {
 	THP_AREA_ALG_PARAM_STEP                          = 1110,
 	THP_HAL_IDLE_RATE                                = 1111,
 	THP_FOD_SET_IC_INTERRUPT                         = 1112,
+	THP_REF_HOPPING_SET                              = 1113,
 	TOUCH_STYLUS_CONNECT_CHANGED                     = 1115,
 	THP_FORCE_H_Report_Rate                          = 1116,
 	Touch_GAMETURBOTOOL_BASE                         = 10000,

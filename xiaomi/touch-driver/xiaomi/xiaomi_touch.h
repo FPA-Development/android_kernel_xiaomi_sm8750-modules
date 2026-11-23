@@ -240,6 +240,7 @@ typedef struct hardware_operation {
 #ifdef TOUCH_FOD_SUPPORT
 	void (*xiaomi_touch_fod_test)(int value);
 	void (*xiaomi_touch_fod_attn_test)(int value);
+	void (*xiaomi_touch_fod_low_attn)(int value);
 #endif
 	int (*set_thermal_temp)(int temp, bool force);
 	void (*touch_dfs_test)(int value);
