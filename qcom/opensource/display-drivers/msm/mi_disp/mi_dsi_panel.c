@@ -1245,6 +1245,10 @@ int mi_dsi_panel_csc_by_temper_comp(struct dsi_panel *panel, int temp_val)
 	}
 	mutex_lock(&panel->panel_lock);
 	rc = mi_dsi_panel_csc_by_temper_comp_locked(panel, temp_val);
+	if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+	    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+		rc = mi_dsi_panel_nova_csc_by_temper_comp_locked(panel, temp_val);
+	}
 	mutex_unlock(&panel->panel_lock);
 	return rc;
 }
@@ -1278,6 +1282,37 @@ int mi_dsi_panel_csc_by_temper_comp_locked(struct dsi_panel *panel, int temp_val
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_45_MODE, false);
 	} else {
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_40_MODE, false);
+	}
+	mi_cfg->real_dbi_state = real_temp_val;
+	return rc;
+}
+
+int mi_dsi_panel_nova_csc_by_temper_comp_locked(struct dsi_panel *panel, int temp_val)
+{
+	int rc = 0;
+	int real_temp_val = temp_val;
+	struct mi_dsi_panel_cfg *mi_cfg = NULL;
+
+	if (!panel) {
+		DISP_ERROR("invalid params\n");
+		return -EINVAL;
+	}
+	mi_cfg = &panel->mi_cfg;
+	if (mi_get_panel_id_by_dsi_panel(panel) != P11_PANEL_PA &&
+	    mi_get_panel_id_by_dsi_panel(panel) != P11_PANEL_PB) {
+		return rc;
+	}
+
+	if (temp_val < 32) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_OFF_MODE, false);
+	} else if (temp_val >= 32 && temp_val < 36) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_32_36_MODE, false);
+	} else if (temp_val >= 36 && temp_val < 40) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_36_40_MODE, false);
+	} else if (temp_val >= 40 && temp_val < 45) {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_40_MODE, false);
+	} else {
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_CSC_BY_TEMPER_COMP_45_MODE, false);
 	}
 	mi_cfg->real_dbi_state = real_temp_val;
 	return rc;
@@ -1557,6 +1592,11 @@ int mi_dsi_panel_set_disp_param(struct dsi_panel *panel, struct disp_feature_ctl
 			rc = mi_dsi_panel_csc_by_temper_comp_locked(panel, ctl->feature_val);
 			DISP_DEBUG("[%s] csc setting, rc=[%d]\n", panel->type, rc);
 		}
+		if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+		    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+			rc = mi_dsi_panel_nova_csc_by_temper_comp_locked(panel, ctl->feature_val);
+			DISP_DEBUG("[%s] csc setting, rc=[%d]\n", panel->type, rc);
+		}
 
 		mi_cfg->feature_val[DISP_FEATURE_DBI] = ctl->feature_val;
 		break;
@@ -1817,7 +1857,10 @@ int mi_dsi_panel_set_nolp_locked(struct dsi_panel *panel)
 			break;
 	}
 
-	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == O2_PANEL_PA) {
+	if ((mi_get_panel_id(panel->mi_cfg.mi_panel_id) == O2_PANEL_PA) ||
+	    (((mi_get_panel_id(panel->mi_cfg.mi_panel_id) == P11_PANEL_PA) ||
+	      (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == P11_PANEL_PB)) &&
+	     panel->mi_cfg.last_bl_level != 0)) {
 			update_bl = panel->mi_cfg.last_bl_level;
 	} else if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == O3_PANEL_PA) {
 		if (panel->mi_cfg.last_bl_level == 0) {
@@ -2318,6 +2361,23 @@ int mi_dsi_panel_auto_limit_by_dbv(struct dsi_panel *panel, u32 bl_lvl)
 }
 
 void mi_dsi_panel_update_ic_dimming_by_bl(struct dsi_panel *panel, u32 bl_lvl) {
+	if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+	    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+		static bool dimming_on = false;
+
+		if (bl_lvl == 0 &&
+		    (panel->mi_cfg.last_no_zero_bl_level > panel->bl_config.bl_normal_max) &&
+		    dimming_on) {
+			dimming_on = false;
+			dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DIMMINGON, false);
+			DISP_INFO("P11 open dimming when HBM OFF, last_bl_level=%d bl_lvl=%d bl_normal_max=%d\n",
+				panel->mi_cfg.last_no_zero_bl_level, bl_lvl,
+				panel->bl_config.bl_normal_max);
+		}
+		if (bl_lvl && !dimming_on)
+			dimming_on = true;
+	}
+
 	if (panel->mi_cfg.disable_ic_dimming || panel->power_mode != SDE_MODE_DPMS_ON
 	|| (mi_get_panel_id_by_dsi_panel(panel) != O2_PANEL_PA))
 		return;

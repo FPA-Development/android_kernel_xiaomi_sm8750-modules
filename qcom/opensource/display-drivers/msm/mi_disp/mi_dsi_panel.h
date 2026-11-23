@@ -355,4 +355,5 @@ int mi_dsi_panel_auto_limit_by_dbv(struct dsi_panel *panel, u32 bl_lvl);
 
 int mi_dsi_panel_csc_by_temper_comp(struct dsi_panel *panel, int temp_val);
 int mi_dsi_panel_csc_by_temper_comp_locked(struct dsi_panel *panel, int temp_val);
+int mi_dsi_panel_nova_csc_by_temper_comp_locked(struct dsi_panel *panel, int temp_val);
 #endif /* _MI_DSI_PANEL_H_ */
