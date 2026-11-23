@@ -21,6 +21,8 @@
 
 #define O2_42_02_0A_PANEL_ID   0x00004F320042020A
 #define O3_42_0D_0A_PANEL_ID   0x00004F3300420D0A
+#define P11_42_0D_0A_PANEL_ID  0x0050313150420D0A
+#define P11_42_02_0B_PANEL_ID  0x005031315042020B
 
 /* PA: Primary display, First selection screen
  * PB: Primary display, Second selection screen
@@ -31,6 +33,8 @@ enum mi_project_panel_id {
 	PANEL_ID_INVALID = 0,
 	O2_PANEL_PA,
 	O3_PANEL_PA,
+	P11_PANEL_PA,
+	P11_PANEL_PB,
 	PANEL_ID_MAX
 };
 
@@ -49,6 +53,8 @@ static inline enum mi_panel_build_id mi_get_panel_build_id(u64 mi_panel_id, u64 
 {
 	switch(mi_panel_id) {
 	case O2_42_02_0A_PANEL_ID:
+	case P11_42_0D_0A_PANEL_ID:
+	case P11_42_02_0B_PANEL_ID:
 		return build_id;
 	case O3_42_0D_0A_PANEL_ID:
 		switch (build_id) {
@@ -74,6 +80,10 @@ static inline enum mi_project_panel_id mi_get_panel_id(u64 mi_panel_id)
 		return O2_PANEL_PA;
 	case O3_42_0D_0A_PANEL_ID:
 		return O3_PANEL_PA;
+	case P11_42_0D_0A_PANEL_ID:
+		return P11_PANEL_PA;
+	case P11_42_02_0B_PANEL_ID:
+		return P11_PANEL_PB;
 	default:
 		return PANEL_ID_INVALID;
 	}
@@ -86,6 +96,10 @@ static inline const char *mi_get_panel_id_name(u64 mi_panel_id)
 		return "O2_PANEL_PA";
 	case O3_PANEL_PA:
 		return "O3_PANEL_PA";
+	case P11_PANEL_PA:
+		return "P11_PANEL_PA";
+	case P11_PANEL_PB:
+		return "P11_PANEL_PB";
 	default:
 		return "unknown";
 	}
@@ -95,6 +109,16 @@ static inline bool is_use_nt37802_dsc_config(u64 mi_panel_id)
 {
 	switch(mi_panel_id) {
 	case O2_42_02_0A_PANEL_ID:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static inline bool is_use_nt37712_dsc_config(u64 mi_panel_id)
+{
+	switch (mi_panel_id) {
+	case P11_42_02_0B_PANEL_ID:
 		return true;
 	default:
 		return false;
