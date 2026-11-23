@@ -9728,6 +9728,12 @@ int dsi_display_enable(struct dsi_display *display)
 				display->panel->mi_cfg.feature_val[DISP_FEATURE_DBI]);
 			DISP_DEBUG("[%s] panel csc setting, rc=[%d]\n", display->panel->type, rc);
 		}
+		if (mi_get_panel_id_by_dsi_panel(display->panel) == P11_PANEL_PA ||
+		    mi_get_panel_id_by_dsi_panel(display->panel) == P11_PANEL_PB) {
+			rc = mi_dsi_panel_csc_by_temper_comp(display->panel,
+				display->panel->mi_cfg.feature_val[DISP_FEATURE_DBI]);
+			DISP_DEBUG("[%s] panel csc setting, rc=[%d]\n", display->panel->type, rc);
+		}
 	}
 
 #endif

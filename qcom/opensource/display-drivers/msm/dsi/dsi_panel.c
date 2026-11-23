@@ -429,6 +429,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 		return rc;
 	}
 
+#ifdef MI_DISPLAY_MODIFY
+	if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB)
+		mdelay(5);
+#endif
+
 	if (gpio_is_valid(panel->reset_config.disp_en_gpio))
 		gpio_set_value(panel->reset_config.disp_en_gpio, 0);
 
@@ -451,6 +456,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 		DSI_ERR("[%s] failed set pinctrl state, rc=%d\n", panel->name,
 		       rc);
 	}
+
+#ifdef MI_DISPLAY_MODIFY
+	if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA)
+		mdelay(2);
+#endif
 
 	rc = dsi_pwr_enable_regulator(&panel->power_info, false);
 	if (rc)
@@ -765,6 +775,11 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 	if (panel->host_config.ext_bridge_mode)
 		return 0;
 #ifdef MI_DISPLAY_MODIFY
+	if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB &&
+	    panel->id_config.build_id < 0x80 &&
+	    bl_lvl > 0 && bl_lvl <= 15) {
+		bl_lvl = 15;
+	}
 	if (is_backlight_set_skip(panel, bl_lvl)) {
 		mi_dsi_panel_update_last_bl_level(panel, bl_lvl);
 		return 0;
@@ -2363,6 +2378,10 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-hbm-off-command",
 	"mi,mdss-dsi-doze-hbm-command",
 	"mi,mdss-dsi-doze-lbm-command",
+	"mi,mdss-dsi-doze-hbm-nolp-command",
+	"mi,mdss-dsi-doze-lbm-nolp-command",
+	"mi,mdss-dsi-doze-suspend-hbm-command",
+	"mi,mdss-dsi-doze-suspend-lbm-command",
 	"mi,mdss-dsi-flat-mode-on-command",
 	"mi,mdss-dsi-flat-mode-off-command",
 	"mi,mdss-dsi-flat-mode-on-sec-command",
@@ -2457,6 +2476,10 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-hbm-off-command-state",
 	"mi,mdss-dsi-doze-hbm-command-state",
 	"mi,mdss-dsi-doze-lbm-command-state",
+	"mi,mdss-dsi-doze-hbm-nolp-command-state",
+	"mi,mdss-dsi-doze-lbm-nolp-command-state",
+	"mi,mdss-dsi-doze-suspend-hbm-command-state",
+	"mi,mdss-dsi-doze-suspend-lbm-command-state",
 	"mi,mdss-dsi-flat-mode-on-command-state",
 	"mi,mdss-dsi-flat-mode-off-command-state",
 	"mi,mdss-dsi-flat-mode-on-sec-command-state",
@@ -5376,6 +5399,21 @@ int dsi_panel_set_lp1(struct dsi_panel *panel)
 		DSI_ERR("[%s] failed to send DSI_CMD_SET_LP1 cmd, rc=%d\n",
 		       panel->name, rc);
 #ifdef MI_DISPLAY_MODIFY
+	if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+	    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+		if (panel->mi_cfg.panel_state == PANEL_STATE_DOZE_HIGH) {
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DOZE_HBM_NOLP, false);
+			if (rc)
+				DSI_ERR("[%s] failed to send DSI_CMD_SET_MI_DOZE_HBM_NOLP cmd, rc=%d\n",
+					panel->name, rc);
+		} else if (panel->mi_cfg.panel_state == PANEL_STATE_DOZE_LOW) {
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DOZE_LBM_NOLP, false);
+			if (rc)
+				DSI_ERR("[%s] failed to send DSI_CMD_SET_MI_DOZE_LBM_NOLP cmd, rc=%d\n",
+					panel->name, rc);
+		}
+	}
+
 	if (mi_cfg->feature_val[DISP_FEATURE_FULLSCREEN_AOD_STATUS]) {
 		if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == O2_PANEL_PA) {
 			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DIMMINGON, false);
@@ -5422,8 +5460,27 @@ int dsi_panel_set_lp2(struct dsi_panel *panel)
 #ifdef MI_DISPLAY_MODIFY
 	if (panel->mi_cfg.panel_state == PANEL_STATE_DOZE_HIGH
 		|| panel->mi_cfg.panel_state == PANEL_STATE_DOZE_LOW) {
-		DSI_INFO("panel already in aod mode, skip set DSI_CMD_SET_LP2\n");
-		goto exit;
+		if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+		    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+			if (panel->mi_cfg.panel_state == PANEL_STATE_DOZE_HIGH) {
+				rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DOZE_SUSPEND_HBM, false);
+				if (rc)
+					DISP_ERROR("[%s] failed to send DSI_CMD_SET_MI_DOZE_SUSPEND_HBM cmd, rc=%d\n",
+						panel->type, rc);
+				else
+					DISP_TIME_INFO("%s panel set lp2: DOZE_HBM\n", panel->type);
+			} else if (panel->mi_cfg.panel_state == PANEL_STATE_DOZE_LOW) {
+				rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_MI_DOZE_SUSPEND_LBM, false);
+				if (rc)
+					DISP_ERROR("[%s] failed to send DSI_CMD_SET_MI_DOZE_SUSPEND_LBM cmd, rc=%d\n",
+						panel->type, rc);
+				else
+					DISP_TIME_INFO("%s panel set lp2: DOZE_LBM\n", panel->type);
+			}
+		} else {
+			DSI_INFO("panel already in aod mode, skip set DSI_CMD_SET_LP2\n");
+			goto exit;
+		}
 	} else {
 		need_set_doze = true;
 	}
@@ -5496,6 +5553,8 @@ int dsi_panel_set_nolp(struct dsi_panel *panel)
 	switch (mi_get_panel_id(panel->mi_cfg.mi_panel_id)) {
 	case O2_PANEL_PA:
 	case O3_PANEL_PA:
+	case P11_PANEL_PA:
+	case P11_PANEL_PB:
 		rc = mi_dsi_panel_set_nolp_locked(panel);
 		break;
 	default:
@@ -5957,6 +6016,15 @@ int dsi_panel_switch(struct dsi_panel *panel)
 	else if ((mi_timing->ddic_mode == DDIC_MODE_AUTO) || (mi_timing->ddic_mode == DDIC_MODE_QSYNC))
 		mi_cfg->last_refresh_rate = mi_timing->sf_refresh_rate;
 	mi_cfg->last_fps_mode = mi_timing->ddic_mode;
+
+	if (mi_cfg->feature_val[DISP_FEATURE_DBI]) {
+		if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+		    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+			rc = mi_dsi_panel_nova_csc_by_temper_comp_locked(panel,
+				mi_cfg->feature_val[DISP_FEATURE_DBI]);
+			DISP_DEBUG("[%s] mi_dsi_panel csc setting, rc=[%d]\n", panel->type, rc);
+		}
+	}
 #endif
 	mutex_unlock(&panel->panel_lock);
 #ifdef MI_DISPLAY_MODIFY
@@ -6061,6 +6129,12 @@ int dsi_panel_enable(struct dsi_panel *panel)
 		if ((mi_get_panel_id_by_dsi_panel(panel) == O2_PANEL_PA) &&
 			(panel->id_config.build_id >= PANEL_P20)) {
 			rc = mi_dsi_panel_csc_by_temper_comp_locked(panel,
+				panel->mi_cfg.feature_val[DISP_FEATURE_DBI]);
+			DISP_DEBUG("[%s] mi_dsi_panel csc setting, rc=[%d]\n", panel->type, rc);
+		}
+		if (mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PA ||
+		    mi_get_panel_id_by_dsi_panel(panel) == P11_PANEL_PB) {
+			rc = mi_dsi_panel_nova_csc_by_temper_comp_locked(panel,
 				panel->mi_cfg.feature_val[DISP_FEATURE_DBI]);
 			DISP_DEBUG("[%s] mi_dsi_panel csc setting, rc=[%d]\n", panel->type, rc);
 		}
