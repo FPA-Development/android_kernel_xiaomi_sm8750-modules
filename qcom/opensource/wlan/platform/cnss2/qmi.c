@@ -924,6 +924,17 @@ static bool cnss_get_xiaomi_bdf_name(struct cnss_plat_data *plat_priv,
 	if (!bdf || (v1 && !bdf->v1))
 		return false;
 
+	if (hw_project == HARDWARE_PROJECT_P11 && hw_country != CountryGlobal) {
+		u32 hwid = get_hw_id_value();
+
+		if (hwid == 0x90006) {
+			cnss_pr_info("hwid=%#x Using BOB bdf\n", hwid);
+			snprintf(filename, filename_len, "bd_p11bob.elf");
+			return true;
+		}
+		cnss_pr_info("hwid=%#x Using DEFAULT bdf\n", hwid);
+	}
+
 	if (hw_country == CountryGlobal)
 		region = "gl";
 	else if (hw_country == CountryIndia && bdf->india && !v1)
