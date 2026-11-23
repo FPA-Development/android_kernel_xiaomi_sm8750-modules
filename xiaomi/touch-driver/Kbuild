@@ -30,3 +30,4 @@ endif
 
 obj-m += xiaomi/
 obj-m += o2/
+obj-m += goodix_9916k/
