@@ -541,13 +541,11 @@ struct tp_frame {
 	unsigned long frame_cnt;
 	int fod_pressed;
 	int fod_trackingId;
-//For P12X fw report diffdata
-#ifdef TOUCH_DUMP_TIC_SUPPORT
-	u8 thp_frame[GOODIX_THP_FRAME_DUMP_SIZE];
-	int dump_type;
-#else
 	u8 thp_frame[GOODIX_THP_FRAME_SIZE];
-#endif
+#ifdef TOUCH_DUMP_TIC_SUPPORT
+	int dump_type;
+	u8 thp_debug[GOODIX_THP_FRAME_SIZE];
+#endif /* TOUCH_DUMP_TIC_SUPPORT */
 };
 #endif
 
@@ -609,7 +607,9 @@ struct goodix_ts_hw_ops {
 	int (*get_capacitance_data)(struct goodix_ts_core *cd, struct ts_rawdata_info *info);
 	int (*charger_on)(struct goodix_ts_core *cd, bool on);
 	int (*palm_on)(struct goodix_ts_core *cd, bool on);
-	//int (*fod_attn)(struct goodix_ts_core *cd, int value);
+#ifdef TOUCH_FOD_SUPPORT
+	int (*fod_attn)(struct goodix_ts_core *cd, int value);
+#endif
 	int (*game)(struct goodix_ts_core *cd, u8 data0, u8 data1, bool on);
 	int (*get_frame_data)(struct goodix_ts_core *cd, struct ts_framedata *info);
 	int (*switch_report_rate)(struct goodix_ts_core *cd, bool on);
@@ -746,7 +746,7 @@ struct goodix_ts_core {
 	/* diff panel tag */
 	bool sec_panel_tag;
 	/* low attn tag */
-	//int low_attn_status; //false, normal; true, low attn forever
+	int low_attn_status; //false, normal; true, low attn forever
 	/* thp fod status tag */
 	int thp_fod_status;
 };
@@ -1003,6 +1003,9 @@ int goodix_htc_enter_glove(int *value);
 int goodix_htc_start_calibration(void);
 int goodix_htc_enable_b_array(void);
 int goodix_normalize_coeffi_update(struct goodix_ts_core *cd);
+#ifdef TOUCH_DUMP_TIC_SUPPORT
+int goodix_htc_enable_ic_dump(int en);
+#endif /* TOUCH_DUMP_TIC_SUPPORT */
 #endif
 int goodix_htc_update_idle_baseline(void);
 int goodix_htc_set_active_scan_rate(int scan_rate);

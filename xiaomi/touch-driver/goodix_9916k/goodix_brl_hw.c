@@ -1546,16 +1546,7 @@ static int brl_event_handler(struct goodix_ts_core *cd,
 #ifdef GOODIX_DEBUG_SPI
 		TOUCH_TRACE_FRAME_CNT_BEGIN(frame_cnt, frame_cnt - 1);
 #endif
-#ifdef TOUCH_DUMP_TIC_SUPPORT
-		tp_frame->dump_type = cd->dump_type;
-		if (cd->dump_type == DUMP_ON) {
-			ret = hw_ops->read(cd, misc->frame_data_addr, tp_frame->thp_frame, GOODIX_THP_FRAME_DUMP_SIZE);
-		} else {
-			ret = hw_ops->read(cd, misc->frame_data_addr, tp_frame->thp_frame, GOODIX_THP_FRAME_SIZE);
-		}
-#else
 		ret = hw_ops->read(cd, misc->frame_data_addr, tp_frame->thp_frame, GOODIX_THP_FRAME_SIZE);
-#endif /* TOUCH_DUMP_TIC_SUPPORT */
 		if (ret) {
 			ts_err("failed get frame data");
 #ifdef GOODIX_DEBUG_SPI
@@ -1575,6 +1566,26 @@ static int brl_event_handler(struct goodix_ts_core *cd,
 			ts_event->event_type = EVENT_FRAME;
 			tp_frame->frame_cnt = frame_cnt;
 			tp_frame->fod_pressed = cd->fod_finger;
+#ifdef TOUCH_DUMP_TIC_SUPPORT
+			tp_frame->dump_type = cd->dump_type;
+			if (cd->dump_type == DUMP_ON) {
+				int mutual_len = goodix_get_tx_num() * goodix_get_rx_num() * 2;
+				if (cd->debug_data_size <= mutual_len)
+					cd->debug_data_size = mutual_len + 178;
+				if (cd->debug_data_size > GOODIX_THP_FRAME_SIZE)
+					cd->debug_data_size = GOODIX_THP_FRAME_SIZE;
+				ts_debug("debug data size: %d", cd->debug_data_size);
+				ret = hw_ops->read(cd, misc->frame_data_addr,
+						tp_frame->thp_debug, cd->debug_data_size);
+				if (ret) {
+					ts_err("failed get frame data");
+#ifdef GOODIX_DEBUG_SPI
+					TOUCH_TRACE_FRAME_CNT_END();
+#endif
+					return -EINVAL;
+				}
+			}
+#endif /* TOUCH_DUMP_TIC_SUPPORT */
 			notify_raw_data_update(TOUCH_ID);
 			rtc_time64_to_tm(ts.tv_sec, &tm);
 			frame_cnt++;
@@ -1980,12 +1991,11 @@ static int brl_palm_on(struct goodix_ts_core *cd, bool on)
 	return 0;
 }
 
-#if 0
 #ifdef TOUCH_FOD_SUPPORT
 #define GOODIX_FOD_ATTN 0xD2
 static int brl_fod_attn(struct goodix_ts_core *cd, int value)
 {
-	struct goodix_ts_cmd cmd;
+	struct goodix_ts_cmd cmd = {0};
 
 	cmd.cmd = GOODIX_FOD_ATTN;
 	cmd.len = 5;
@@ -2023,7 +2033,6 @@ static int brl_fod_attn(struct goodix_ts_core *cd, int value)
 	return 0;
 }
 #endif
-#endif
 
 #ifdef GOODIX_XIAOMI_TOUCHFEATURE
 #define GOODIX_GAME_CMD      0x17
@@ -2055,15 +2064,14 @@ static int brl_game(struct goodix_ts_core *cd, u8 data0, u8 data1, bool on)
 #ifdef TOUCH_THP_SUPPORT
 
 /*
-	O10之后使用新协议上报
-	enable thp frame data report THP4.0
-	enable 00 00 06 90 02 01 99 00
-	unable 00 00 06 90 02 00 98 00
+	enable thp frame data report (annibale / P11 uses rawdata mode 0x01)
+	enable  00 00 06 90 01 01 98 00
+	disable 00 00 06 90 01 00 97 00
 */
 static int goodix_htc_enable_touch_raw(int en)
 {
 	struct goodix_ts_hw_ops *hw_ops;
-	struct goodix_ts_cmd raw_cmd;
+	struct goodix_ts_cmd raw_cmd = {0};
 	int ret;
 
 	ts_info("enter");
@@ -2071,9 +2079,9 @@ static int goodix_htc_enable_touch_raw(int en)
 		return -EINVAL;
 	hw_ops = goodix_core_data->hw_ops;
 	raw_cmd.cmd = GOODIX_CMD_FRAMEDATA;
-	raw_cmd.data[0] = 0x02;
+	raw_cmd.data[0] = 0x01;
 	if (en) {
-		raw_cmd.data[1] = 0x01; //diff
+		raw_cmd.data[1] = 0x01; //rawdata
 	} else {
 		raw_cmd.data[1] = 0x00;
 	}
@@ -2167,6 +2175,31 @@ int goodix_htc_enable_b_array(void)
 
 	return ret;
 }
+
+#ifdef TOUCH_DUMP_TIC_SUPPORT
+#define GOODIX_CMD_DEBUGDATA 0xCD
+int goodix_htc_enable_ic_dump(int en)
+{
+	struct goodix_ts_hw_ops *hw_ops;
+	struct goodix_ts_cmd raw_cmd = {0};
+	int ret = 0;
+
+	ts_info("enter");
+	if (!goodix_core_data)
+		return -EINVAL;
+	hw_ops = goodix_core_data->hw_ops;
+	raw_cmd.cmd = GOODIX_CMD_DEBUGDATA;
+	raw_cmd.data[0] = en ? 0x01 : 0x00;
+	raw_cmd.len = 5;
+	ret = hw_ops->send_cmd(goodix_core_data, &raw_cmd);
+	if (ret)
+		ts_err("failed send rawdata cmd %d, ret %d", en, ret);
+	else
+		ts_info("success send rawdata cmd %d", en);
+
+	return ret;
+}
+#endif /* TOUCH_DUMP_TIC_SUPPORT */
 
 #endif /* TOUCH_THP_SUPPORT */
 
@@ -2825,7 +2858,9 @@ static struct goodix_ts_hw_ops brl_hw_ops = {
 	.get_capacitance_data = brl_get_capacitance_data,
 	.charger_on = brl_charger_on,
 	.palm_on = brl_palm_on,
-	//.fod_attn = brl_fod_attn,
+#ifdef TOUCH_FOD_SUPPORT
+	.fod_attn = brl_fod_attn,
+#endif
 #ifdef GOODIX_XIAOMI_TOUCHFEATURE
 	.game = brl_game,
 #endif

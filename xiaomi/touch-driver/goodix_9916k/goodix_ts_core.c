@@ -2040,9 +2040,9 @@ static int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
 
 	/* set input parameters */
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X,
-				0, ts_bdata->panel_max_x, 0, 0);
+				0, ts_bdata->panel_max_x - 1, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y,
-				0, ts_bdata->panel_max_y, 0, 0);
+				0, ts_bdata->panel_max_y - 1, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_TOUCH_MAJOR,
 				0, ts_bdata->panel_max_w, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_WIDTH_MAJOR,
@@ -2721,18 +2721,22 @@ static int goodix_ts_resume(struct goodix_ts_core *core_data)
 	if (hw_ops->resume)
 		hw_ops->resume(core_data);
 
-	//if (core_data->low_attn_status) {
-	//	core_data->hw_ops->fod_attn(core_data, 3);
-	//	ts_info("set low forever attn after reset");
-	//} else {
-	//	if (core_data->thp_fod_status == 0 && core_data->fod_finger== 0) {
-	//		core_data->hw_ops->fod_attn(core_data, 5);
-	//		ts_info("set low attn after reset");
-	//	} else {
-	//		core_data->hw_ops->fod_attn(core_data, 4);
-	//		ts_info("set high attn after reset");
-	//	}
-	//}
+#ifdef TOUCH_FOD_SUPPORT
+	if (core_data->hw_ops->fod_attn) {
+		if (core_data->low_attn_status) {
+			core_data->hw_ops->fod_attn(core_data, 3);
+			ts_info("set low forever attn after reset");
+		} else {
+			if (core_data->thp_fod_status == 0 && core_data->fod_finger == 0) {
+				core_data->hw_ops->fod_attn(core_data, 5);
+				ts_info("set low attn after reset");
+			} else {
+				core_data->hw_ops->fod_attn(core_data, 4);
+				ts_info("set high attn after reset");
+			}
+		}
+	}
+#endif
 
 	mutex_lock(&goodix_modules.mutex);
 	if (!list_empty(&goodix_modules.head)) {
@@ -2756,6 +2760,13 @@ out:
 	core_data->work_status = TP_NORMAL;
 	enable_temperature_detection_func(true);
 	goodix_set_thermal_temp(0, true);
+#if defined(TOUCH_THP_SUPPORT) && defined(TOUCH_DUMP_TIC_SUPPORT)
+	if (core_data->dump_type >= DUMP_ON) {
+		ret = goodix_htc_enable_ic_dump(1);
+		if (!ret)
+			ts_debug("restore dump state(%d) success", core_data->dump_type);
+	}
+#endif /* TOUCH_DUMP_TIC_SUPPORT */
 
 	/* enable palm sensor */
 	if (core_data->palm_status) {
@@ -3415,11 +3426,13 @@ static void  goodix_xiaomi_touch_fod_test(int value)
 	}
 }
 
-#if 0
 #define GOODIX_FOD_ATTN 0xD2
 static void goodix_xiaomi_touch_fod_attn(int value)
 {
 	ts_info("enter fod_attn");
+
+	if (!goodix_core_data || !goodix_core_data->hw_ops->fod_attn)
+		return;
 
 	if (value == 0) {
 		/* force low attn */
@@ -3445,8 +3458,7 @@ static void goodix_xiaomi_touch_fod_attn(int value)
 		/* low attn for no press in fod when screen on */
 		goodix_core_data->hw_ops->fod_attn(goodix_core_data, 5);
 		ts_info("low attn for no press in fod");
-	} 
-	else {
+	} else {
 		/* error */
 		ts_err("invalid value = %d\n", value);
 	}
@@ -3455,6 +3467,9 @@ static void goodix_xiaomi_touch_fod_attn(int value)
 static void goodix_xiaomi_touch_fod_low_attn(int value)
 {
 	ts_info("enter fod_low_attn");
+
+	if (!goodix_core_data || !goodix_core_data->hw_ops->fod_attn)
+		return;
 
 	if (value == 0) {
 		/* low attn forever */
@@ -3471,7 +3486,6 @@ static void goodix_xiaomi_touch_fod_low_attn(int value)
 		ts_err("invalid value = %d\n", value);
 	}
 }
-#endif
 #endif
 
 #ifdef GOODIX_XIAOMI_TOUCHFEATURE
@@ -3800,14 +3814,13 @@ static void goodix_set_cur_value(int mode, int *value)
 			break;
 #if defined(TOUCH_THP_SUPPORT) && defined(TOUCH_DUMP_TIC_SUPPORT)
 		case Touch_THP_Dump:
-			if ((gtp_value == DUMP_OFF || gtp_value == DUMP_ON) && goodix_core_data->dump_type != gtp_value) {
-				ts_debug("change dump state(%d) as %d",
+			if (gtp_value == DUMP_OFF || gtp_value == DUMP_ON || gtp_value == DUMP_BASE) {
+				ts_info("change dump state(%d) as %d",
 					goodix_core_data->dump_type, gtp_value);
 				goodix_core_data->dump_type = gtp_value;
 			}
 			break;
 #endif //TOUCH_DUMP_TIC_SUPPORT
-			break;
 		case THP_IDLE_THD:
 			goodix_htc_set_idle_threshold(gtp_value);
 			break;
@@ -3841,6 +3854,24 @@ static void goodix_set_cur_value(int mode, int *value)
 				ts_info("not set to ic");
 			}
 			break;
+#ifdef TOUCH_FOD_SUPPORT
+		case THP_FOD_SET_IC_INTERRUPT:
+			if (goodix_core_data->low_attn_status) {
+				ts_info("low attn status is %d, low attn forever",
+					goodix_core_data->low_attn_status);
+				break;
+			}
+			if (gtp_value) {
+				goodix_core_data->thp_fod_status = 1;
+				ts_info("set fod_attn = %d", 4);
+				goodix_xiaomi_touch_fod_attn(4);
+			} else {
+				goodix_core_data->thp_fod_status = 0;
+				ts_info("set fod_attn = %d", 5);
+				goodix_xiaomi_touch_fod_attn(5);
+			}
+			break;
+#endif
 		case THP_REF_HOPPING_SET:
 			goodix_htc_ref_hopping_set(value);
 			break;
@@ -4232,8 +4263,12 @@ upgrade:
 #ifdef GOODIX_XIAOMI_TOUCHFEATURE
 
 	goodix_core_data->sync_mode = DIFF_AUTO_SYNC;  //AUTO_SYNC
-	hardware_param.x_resolution = goodix_get_x_resolution();
-	hardware_param.y_resolution = goodix_get_y_resolution();
+	hardware_param.x_resolution = ts_bdata->super_resolution_factor ?
+		(ts_bdata->panel_max_x / ts_bdata->super_resolution_factor) :
+		goodix_get_x_resolution();
+	hardware_param.y_resolution = ts_bdata->super_resolution_factor ?
+		(ts_bdata->panel_max_y / ts_bdata->super_resolution_factor) :
+		goodix_get_y_resolution();
 	hardware_param.rx_num = (u16) goodix_get_rx_num();
 	hardware_param.tx_num = (u16) goodix_get_tx_num();
 	hardware_param.super_resolution_factor = ts_bdata->super_resolution_factor;
@@ -4289,8 +4324,8 @@ upgrade:
 #endif
 #ifdef TOUCH_FOD_SUPPORT
 	hardware_operation.xiaomi_touch_fod_test = goodix_xiaomi_touch_fod_test;
-	hardware_operation.xiaomi_touch_fod_attn_test = NULL;
-	hardware_operation.xiaomi_touch_fod_low_attn = NULL;
+	hardware_operation.xiaomi_touch_fod_attn_test = goodix_xiaomi_touch_fod_attn;
+	hardware_operation.xiaomi_touch_fod_low_attn = goodix_xiaomi_touch_fod_low_attn;
 #endif
 
 	register_touch_panel(cd->bus->dev, TOUCH_ID, &hardware_param, &hardware_operation);

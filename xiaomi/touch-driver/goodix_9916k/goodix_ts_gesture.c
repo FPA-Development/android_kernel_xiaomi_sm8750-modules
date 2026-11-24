@@ -278,18 +278,22 @@ int gsx_gesture_before_resume(struct goodix_ts_core *cd)
 	disable_irq_wake(cd->irq);
 	hw_ops->resume(cd);
 
-	//if (cd->low_attn_status) {
-	//	cd->hw_ops->fod_attn(cd, 3);
-	//	ts_info("set low forever attn after reset");
-	//} else {
-	//	if (cd->thp_fod_status == 0 && cd->fod_finger== 0) {
-	//		cd->hw_ops->fod_attn(cd, 5);
-	//		ts_info("set low attn after reset");
-	//	} else {
-	//		cd->hw_ops->fod_attn(cd, 4);
-	//		ts_info("set high attn after reset");
-	//	}
-	//}
+#ifdef TOUCH_FOD_SUPPORT
+	if (cd->hw_ops->fod_attn) {
+		if (cd->low_attn_status) {
+			cd->hw_ops->fod_attn(cd, 3);
+			ts_info("set low forever attn after reset");
+		} else {
+			if (cd->thp_fod_status == 0 && cd->fod_finger == 0) {
+				cd->hw_ops->fod_attn(cd, 5);
+				ts_info("set low attn after reset");
+			} else {
+				cd->hw_ops->fod_attn(cd, 4);
+				ts_info("set high attn after reset");
+			}
+		}
+	}
+#endif
 
 	return EVT_CANCEL_RESUME;
 }
